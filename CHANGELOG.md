@@ -1,3 +1,11 @@
+## [2.3.1] - 2026-08-20
+
+### Other Changes
+
+- `cubage.jl`'s internal metric/imperial volume normalization now goes through
+  `ForestFoundations.referencevolume` (new in `ForestFoundations.jl`) instead of its own
+  copy of the same `ImperialUnits` check — no behavior change.
+
 ## [2.3.0] - 2026-08-19
 
 ### Changed

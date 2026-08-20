@@ -3,11 +3,11 @@
 # 0 at the top of the tree is a legitimate profile point whose area is simply zero.
 _g(d::Len) = iszero(d) ? zero(basalarea(oneunit(d))) : basalarea(d)
 
-# Normalises a computed volume to cubic feet when the reference diameter is imperial
-# and to cubic meters otherwise. Mirrors the rule used by `basalarea`, so results stay
-# in a single coherent unit even when lengths and diameters are supplied in different
-# units (e.g. length in `m` and diameter in `cm`).
-_asvolume(v::Vol, dref::Len) = unit(dref) isa ImperialUnits ? uconvert(u"ft^3", v) : uconvert(u"m^3", v)
+# Normalises a computed volume to the reference diameter's measurement system (m^3
+# metric, ft^3 imperial, via ForestFoundations.referencevolume), so results stay in a
+# single coherent unit even when lengths and diameters are supplied in different units
+# (e.g. length in `m` and diameter in `cm`).
+_asvolume(v::Vol, dref::Len) = uconvert(referencevolume(unit(dref)), v)
 
 """
     smalian(L::Len, dbase::Len, dtop::Len)
