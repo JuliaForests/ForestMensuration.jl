@@ -6,17 +6,16 @@ ForestMensuration.jl is a Julia package that provides a comprehensive set of fun
 - **Calculate tree and stand volume (cubage)**: Support for various methods such as Huber, Smalian, and Newton allows precise calculation of tree and stand volumes.
 - **Compute dendrometric averages**: Calculate essential dendrometric metrics like mean diameter, quadratic mean diameter, and others to understand stand structure.
 - **Create frequency tables**: Generate frequency and diametric tables to analyze the distribution of dendrometric variables such as diameter and height.
-- **Estimate forest inventory sampling designs**: a single entry point, [`sampling`](@ref),
-  dispatches on a [`SamplingDesign`](@ref) type to select among all 11 classic designs —
-  simple ([`SimpleCasualSampling`](@ref)), stratified ([`StratifiedSampling`](@ref)),
-  systematic ([`SystematicSampling`](@ref), [`MultistartSystematicSampling`](@ref)),
-  cluster/two-stage ([`ClusterSampling`](@ref), [`TwoStageSampling`](@ref)), horizontal
-  point/Bitterlich angle-count sampling ([`HorizontalPointSampling`](@ref)), and the four
-  sampling-on-successive-occasions designs ([`IndependentOccasionsSampling`](@ref),
-  [`CompleteReplacementSampling`](@ref), [`PartialReplacementSampling`](@ref),
-  [`DoubleSampling`](@ref)) — every one generic to any number of strata/clusters/plots and
-  returning a [`SamplingReport`](@ref) or plain `DataFrame`. `subtypes(SamplingDesign)`
-  lists all 11 at once. Re-exported from
+- **Estimate forest inventory sampling designs**: all 11 classic designs, each its own
+  function taking plain vectors — simple ([`simpleCasualSampling`](@ref)), stratified
+  ([`stratifiedSampling`](@ref)), systematic ([`systematicSampling`](@ref),
+  [`multistartSystematicSampling`](@ref)), cluster/two-stage ([`clusterSampling`](@ref),
+  [`twoStageSampling`](@ref)), horizontal point/Bitterlich angle-count sampling
+  ([`horizontalPointSampling`](@ref)), and the four sampling-on-successive-occasions
+  designs ([`independentOccasionsSampling`](@ref), [`completeReplacementSampling`](@ref),
+  [`partialReplacementSampling`](@ref), [`doubleSampling`](@ref)) — every one generic to
+  any number of strata/clusters/plots and returning a [`SamplingReport`](@ref) or plain
+  `DataFrame`. Re-exported from
   [ForestInventory.jl](https://github.com/JuliaForests/ForestInventory.jl).
 - **Apply fitted stem taper models**: [`taperdiameter`](@ref)/[`taperheight`](@ref) evaluate
   or invert a [`TaperFit`](@ref) (fit with `ForestModeling.fit` — see its module docstring

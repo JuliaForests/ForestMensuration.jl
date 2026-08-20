@@ -59,8 +59,8 @@ A one-row `DataFrame`:
 - `product::Tuple{Vararg{AbstractString}}`: product names, in table order.
 - `volume::Tuple{Vararg{Float64}}`: volume assigned to each product, **in `m^3` as plain
   numbers** — a `Tuple`-typed column has no single `eltype` `removeunits`/`restoreunits`
-  can strip/restore a unit from (the same reason [`StratifiedSampling`](@ref)'s `areah`
-  column is already unitless), so this is stored already-stripped instead of silently
+  can strip/restore a unit from (the same reason [`stratifiedSampling`](@ref)'s
+  `areaByStratum` column is already unitless), so this is stored already-stripped instead of silently
   carrying a hidden `Unitful` type through the round trip.
 - `logs::Tuple{Vararg{Int}}`: number of logs cut for each product.
 - `totalvolume::Vol`: volume assigned across every product (`Unitful`, `m^3`).

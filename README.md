@@ -47,15 +47,16 @@ dendrometry, and forest biometrics. Its key features include:
   expansions (`diametrictable`).
 
 - **Forest Inventory Sampling:**
-  A single entry point, `sampling(Design, ...)`, dispatches on a `SamplingDesign` type to
-  select among all 11 classic designs, each generic to any number of strata/clusters/plots:
-  simple (`SimpleCasualSampling`), stratified (`StratifiedSampling`), systematic
-  (`SystematicSampling`, `MultistartSystematicSampling`), cluster/two-stage
-  (`ClusterSampling`, `TwoStageSampling`), horizontal point/Bitterlich angle-count
-  sampling (`HorizontalPointSampling`), and the four sampling-on-successive-occasions
-  designs used in continuous forest inventory (`IndependentOccasionsSampling`,
-  `CompleteReplacementSampling`, `PartialReplacementSampling`, `DoubleSampling`).
-  `subtypes(SamplingDesign)` lists all 11 at once.
+  All 11 classic designs, one function each, generic to any number of strata/clusters/plots
+  and taking plain vectors throughout (no `DataFrame`/column-name indirection): simple
+  (`simpleCasualSampling`), stratified (`stratifiedSampling`), systematic
+  (`systematicSampling`, `multistartSystematicSampling`), cluster/two-stage
+  (`clusterSampling`, `twoStageSampling`), horizontal point/Bitterlich angle-count
+  sampling (`horizontalPointSampling`), and the four sampling-on-successive-occasions
+  designs used in continuous forest inventory (`independentOccasionsSampling`,
+  `completeReplacementSampling`, `partialReplacementSampling`, `doubleSampling`).
+  Provided by [ForestInventory.jl](https://github.com/JuliaForests/ForestInventory.jl),
+  re-exported here.
 
 - **Stem Taper Equations:**
   Fit 10 classic published taper (stem-profile) forms — `Kozak1969`, `Schoepfer1966`,
@@ -281,11 +282,13 @@ julia> diametrictable(diameters, 2u"cm", plot_area=plotarea)
 
 ### Forest Inventory Sampling
 
-Estimate a stand's total volume — with its confidence interval, coefficient of variation,
-and required sample size — from any of the 11 classic sampling designs. Every design is
-generic to any number of strata/clusters/plots and accepts plain numbers (volume defaults
-to `m^3`, areas to `ha`) or explicit `Unitful` quantities, exactly like the rest of the
-package.
+Estimate a stand's total — with its confidence interval, coefficient of variation, and
+required sample size — from any of the 11 classic sampling designs, each its own function
+taking plain vectors (no `DataFrame`/column-name indirection). Every design accepts plain
+numbers for `plot_area`/`total_area` (assumed to be `ha`), but never assumes a unit for the
+sampled quantity itself — it might be volume, basal area, a tree count, or anything else,
+so a `Unitful` quantity is preserved as given and a plain number stays unitless throughout,
+unlike every other function in this package.
 
 Every result table is a single-row, one-column-per-statistic `DataFrame` — the same shape
 as `dmetrics`/`standmetrics` — so every value that carries a physical unit is a real
@@ -296,24 +299,24 @@ directly, just like on any other table in this package.
 ```julia-repl
 using ForestMensuration
 
-julia> v = [381.7, 458.9, 468.2, 531.7, 474.1, 401.9, 469.1, 437.4, 435.3, 403.2, 397.1];
+julia> v = [381.7, 458.9, 468.2, 531.7, 474.1, 401.9, 469.1, 437.4, 435.3, 403.2, 397.1]u"m^3";
 
-julia> report = sampling(SimpleCasualSampling, v, 0.05, 10; e=10, α=0.95)
+julia> report = simpleCasualSampling(v, 0.05, 10; e=10, α=0.95)
 1×17 DataFrame
- Row │ vm           cv       s2m          se           abserr       relerr   vha                vtotal       cilower      ciupper      pop      f        n      nreq   nmiss  N      area
-     │ Quantity…    Float64  Quantity…    Quantity…    Quantity…    Float64  Quantity…          Quantity…    Quantity…    Quantity…    String   Float64  Int64  Int64  Int64  Int64  Quantity…
-─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1 │ 441.691 m^3    10.03  168.498 m^6  12.9807 m^3  28.9227 m^3     6.55  8833.82 m^3 ha^-1   88338.2 m^3  82553.6 m^3  94122.7 m^3  finite    0.945     11      7      0    200  10 ha
+ Row │ mean         coefficientOfVariation  varianceOfMean  standardError  absoluteError  relativeError  meanPerHectare      total        lowerLimit   upperLimit   population  samplingFraction  n      requiredSampleSize  additionalSampleSize  N      area
+     │ Quantity…    Float64                 Quantity…       Quantity…      Quantity…      Float64        Quantity…           Quantity…    Quantity…    Quantity…    String      Float64           Int64  Int64                Int64                  Int64  Quantity…
+─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 │ 441.691 m^3                   10.03     168.498 m^6    12.9807 m^3    28.9227 m^3           6.55  8833.82 m^3 ha^-1   88338.2 m^3  82553.6 m^3  94122.7 m^3  finite                 0.945     11                   7                      0    200  10 ha
 
-julia> report.vm
+julia> report.mean
 441.6909090909091 m^3
 
-julia> removeunits(report)[:, ["vm (m^3)", "vtotal (m^3)"]]
+julia> removeunits(report)[:, ["mean (m^3)", "total (m^3)"]]
 1×2 DataFrame
- Row │ vm (m^3)  vtotal (m^3)
-     │ Float64   Float64
-─────┼────────────────────────
-   1 │  441.691       88338.2
+ Row │ mean (m^3)  total (m^3)
+     │ Float64     Float64
+─────┼──────────────────────────
+   1 │    441.691      88338.2
 ```
 
 Multi-table designs (stratified, cluster, two-stage, and the four successive-occasions
@@ -321,42 +324,43 @@ designs) return a `SamplingReport` instead of a bare `DataFrame`, so the per-gro
 per-occasion tables travel together — each one reachable as a property:
 
 ```julia-repl
-using DataFrames
+julia> stratum = [1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3];
 
-julia> data = DataFrame(
-         stratum=[1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3],
-         volume=[18.2, 21.4, 19.8, 20.1, 32.5, 35.1, 30.8, 12.4, 11.9, 13.6, 12.8, 13.1],
-       );
+julia> value = [18.2, 21.4, 19.8, 20.1, 32.5, 35.1, 30.8, 12.4, 11.9, 13.6, 12.8, 13.1]u"m^3";
 
-julia> report = sampling(StratifiedSampling, :stratum, :volume, 0.1, [12.0, 8.0, 20.0], data);
+julia> report = stratifiedSampling(stratum, value, 0.1, Dict(1 => 12.0, 2 => 8.0, 3 => 20.0));
 
-julia> resultTable(report).vm
+julia> resultTable(report).mean
 18.9025 m^3
 
-julia> resultTable(report).nh   # per-stratum measured plots, as a tuple
+julia> resultTable(report).sampleSizeByStratum   # per-stratum measured plots, as a tuple
 (4, 3, 5)
 
 julia> auxiliaryTable(report)   # per-stratum n, mean, variance, and allocation weights
 julia> anova(report)             # test for a difference between strata means
 ```
 
+`strata_area` is a `Dict` keyed by the same labels used in `stratum`, rather than a
+plainly ordered vector — so the rows above don't need to be pre-sorted by stratum, they
+can be listed in whatever order the plots were actually collected in.
+
 The remaining nine designs follow the same pattern — see the
 [Forest Inventory Sampling tutorial](https://JuliaForests.github.io/ForestMensuration.jl/dev/tutorial/#Forest-Inventory-Sampling)
 for a complete, runnable example of every one:
 
-| `sampling(Design, ...)` | Design |
+| Function | Design |
 |:-------------------------|:-------|
-| `SimpleCasualSampling` | Simple random sampling |
-| `StratifiedSampling` | Stratified random sampling |
-| `SystematicSampling` | Systematic sampling (method of successive differences) |
-| `MultistartSystematicSampling` | Systematic sampling with multiple random starts |
-| `ClusterSampling` | One-stage cluster sampling |
-| `TwoStageSampling` | Two-stage sampling |
-| `HorizontalPointSampling` | Horizontal point sampling (Bitterlich's angle-count method) |
-| `IndependentOccasionsSampling` | Successive occasions, independent samples |
-| `CompleteReplacementSampling` | Successive occasions, complete replacement (matched plots) |
-| `PartialReplacementSampling` | Successive occasions, partial replacement |
-| `DoubleSampling` | Successive occasions, double sampling with regression |
+| `simpleCasualSampling` | Simple random sampling |
+| `stratifiedSampling` | Stratified random sampling |
+| `systematicSampling` | Systematic sampling (method of successive differences) |
+| `multistartSystematicSampling` | Systematic sampling with multiple random starts |
+| `clusterSampling` | One-stage cluster sampling |
+| `twoStageSampling` | Two-stage sampling |
+| `horizontalPointSampling` | Horizontal point sampling (Bitterlich's angle-count method) |
+| `independentOccasionsSampling` | Successive occasions, independent samples |
+| `completeReplacementSampling` | Successive occasions, complete replacement (matched plots) |
+| `partialReplacementSampling` | Successive occasions, partial replacement |
+| `doubleSampling` | Successive occasions, double sampling with regression |
 
 ### Stem Taper Equations
 
