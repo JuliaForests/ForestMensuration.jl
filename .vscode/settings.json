@@ -1,1 +1,8 @@
-{}
+{
+  "[julia]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false
+  },
+  "julia.format.indent": 2
+}

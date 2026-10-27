@@ -1,15 +1,16 @@
 # Calculates the number of classes using Sturges' formula.
 _sturges(n::Int) = ceil(Int, log2(n)) + 1
-# Calculates the class center for a given value and class width.
-_classcenter(x::Real, hi::Real) = round(x / hi) * hi + (hi / 2)
+# Index of the class [k hi, (k + 1) hi) that holds a value. The quotient is rounded to 10 digits
+# so that a value on a limit (0.3 with a width of 0.1) is not sent down by floating-point noise.
+_classindex(x::Real, hi::Real) = floor(Int, round(x / hi, digits=10))
 # Calculates the amplitude (range) of a vector of values.
 _amplitude(x::AbstractVector) = maximum(x) - minimum(x)
 # Calculates the class breadth (width) for a given amplitude and number of classes.
-function _classbreadth(h::Real, k::Int)
-  hi = h / k
-  log_hi = log10(hi)
-  if log_hi >= 0
-    step = exp10(floor(log_hi))
+function _classbreadth(amp::Real, nclass::Int)
+  hi = amp / nclass
+  loghi = log10(hi)
+  if loghi >= 0
+    step = exp10(floor(loghi))
     rate = hi / step
     if rate <= 1.1
       nothing
@@ -22,7 +23,7 @@ function _classbreadth(h::Real, k::Int)
     end
     return step
   else
-    step = exp10(-floor(log_hi))
+    step = exp10(-floor(loghi))
     rate = hi * step
     if rate <= 1.1
       nothing
@@ -36,16 +37,22 @@ function _classbreadth(h::Real, k::Int)
     return step^-1
   end
 end
-# Calculates the simple frequency of unique values in a vector.
-_simplefrequency(x::AbstractVector) = map(i -> count(==(i), x), unique(x) |> sort)
 
-# Unit in which a bare (unitless) class width is interpreted for a unitful sample:
-# the same unit the observations themselves are expressed in.
+# Unit of a unitful sample: the unit the observations themselves are expressed in.
 _sampleunit(x::AbstractVector{<:Quantity}) = unit(first(x))
+
+# Class width chosen from Sturges' rule for the amplitude of the sample, in the type of the sample
+# (a plain number, or a quantity in the unit of the observations).
+_autowidth(x::AbstractVector{<:Real}) = _classbreadth(_amplitude(x), _sturges(length(x)))
+
+function _autowidth(x::AbstractVector{<:Quantity})
+  ux = _sampleunit(x)
+  return _classbreadth(ustrip(uconvert(ux, _amplitude(x))), _sturges(length(x))) * ux
+end
 
 """
     frequencytable(x::AbstractVector{<:Real}, hi::Real)
-    frequencytable(x::AbstractVector{<:Quantity}, hi::Union{Quantity,Real})
+    frequencytable(x::AbstractVector{<:Quantity}, hi::Quantity)
 
 Creates a frequency table for a vector of values given a class width.
 
@@ -57,14 +64,18 @@ Creates a frequency table for a vector of values given a class width.
 
 `frequencytable` is unit-agnostic: it classifies whatever variable it is given
 (diameters, heights, volumes, ages). When `x` carries `Unitful` quantities, the class
-limits `LI`, `Xi` and `LS` are returned in the same unit as `x`, and a class width given
-as a plain number is interpreted in that unit as well. When `x` holds plain numbers the
-table is returned unitless — no unit is assumed, because the variable is unknown. Use
-[`diametrictable`](@ref) for diameter-specific tables, where a plain number is taken to
-be centimeters.
+limits `LI`, `Xi` and `LS` are returned in the same unit as `x`, and the class width `hi`
+must then be a quantity too (it may be in another unit and is converted). When `x` holds
+plain numbers the table is returned unitless — no unit is assumed, because the variable
+is unknown. Use [`diametrictable`](@ref) for diameter-specific tables, which require units.
 
 # Returns
-- `DataFrame`: A DataFrame containing the frequency table.
+- `DataFrame`: A DataFrame with a row per class, from the class of the smallest value to the class of the largest one (the empty classes included, with frequency zero), and the columns:
+  - `LI`, `Xi`, `LS`: the lower limit, the center and the upper limit of the class. A class is the interval ``[LI, LS)``, closed on the left, so a value on a limit belongs to the class that starts there (12 is in the class 12-14, not in 10-12);
+  - `fi`: the absolute frequency, the number of observations in the class;
+  - `Fi`: the cumulative absolute frequency;
+  - `fri`: the relative frequency, in percent of the observations;
+  - `Fri`: the cumulative relative frequency, in percent.
 
 # Example
 ```julia-repl
@@ -72,29 +83,30 @@ be centimeters.
 # Define the vector of values
 julia> x = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0];
 
-# Calculate the frequency table with The class width of 2
+# Calculate the frequency table with a class width of 2
 julia> frequencytable(x, 2)
 8×7 DataFrame
- Row │ LI       Xi       LS       fi     Fi     fri      Fri     
+ Row │ LI       Xi       LS       fi     Fi     fri      Fri
      │ Float64  Float64  Float64  Int64  Int64  Float64  Float64
 ─────┼───────────────────────────────────────────────────────────
    1 │    10.0     11.0     12.0      1      1     10.0     10.0
-   2 │    12.0     13.0     14.0      1      2     10.0     20.0
-   3 │    14.0     15.0     16.0      1      3     10.0     30.0
-   4 │    16.0     17.0     18.0      2      5     20.0     50.0
-   5 │    18.0     19.0     20.0      1      6     10.0     60.0
-   6 │    20.0     21.0     22.0      2      8     20.0     80.0
+   2 │    12.0     13.0     14.0      2      3     20.0     30.0
+   3 │    14.0     15.0     16.0      1      4     10.0     40.0
+   4 │    16.0     17.0     18.0      1      5     10.0     50.0
+   5 │    18.0     19.0     20.0      2      7     20.0     70.0
+   6 │    20.0     21.0     22.0      1      8     10.0     80.0
    7 │    22.0     23.0     24.0      1      9     10.0     90.0
    8 │    24.0     25.0     26.0      1     10     10.0    100.0
 
 # the same sample carrying units keeps them in the class limits
 julia> frequencytable([10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0]u"cm", 2u"cm")
 8×7 DataFrame
- Row │ LI        Xi        LS        fi     Fi     fri      Fri
-     │ Quantity  Quantity  Quantity  Int64  Int64  Float64  Float64
-─────┼────────────────────────────────────────────────────────────────
-   1 │  10.0 cm   11.0 cm   12.0 cm      1      1     10.0     10.0
-  ⋮  │    ⋮         ⋮         ⋮        ⋮      ⋮       ⋮        ⋮
+ Row │ LI         Xi         LS         fi     Fi     fri      Fri
+     │ Quantity…  Quantity…  Quantity…  Int64  Int64  Float64  Float64
+─────┼─────────────────────────────────────────────────────────────────
+   1 │   10.0 cm    11.0 cm    12.0 cm      1      1     10.0     10.0
+   2 │   12.0 cm    13.0 cm    14.0 cm      2      3     20.0     30.0
+  ⋮
 ```
 """
 function frequencytable(x::AbstractVector{<:Real}, hi::Real)
@@ -102,23 +114,24 @@ function frequencytable(x::AbstractVector{<:Real}, hi::Real)
     throw(DomainError("The class width must be positive."))
   end
   n = length(x)
-  cc = _classcenter.(x, hi)
-  Xi = unique(cc) |> sort
-  LI = Xi .- hi / 2
-  LS = Xi .+ hi / 2
-  fi = _simplefrequency(cc)
+  k = _classindex.(x, hi)
+  # every class from the first to the last, the empty ones included (frequency zero)
+  classes = minimum(k):maximum(k)
+  LI = classes .* float(hi)
+  Xi = LI .+ float(hi) / 2
+  LS = LI .+ float(hi)
+  fi = [count(==(c), k) for c in classes]
   Fi = cumsum(fi)
   fri = (fi ./ n) .* 100
   Fri = cumsum(fri)
   DataFrame(LI=LI, Xi=Xi, LS=LS, fi=fi, Fi=Fi, fri=fri, Fri=Fri)
 end
 
-function frequencytable(x::AbstractVector{<:Quantity}, hi::Union{Quantity,Real})
+function frequencytable(x::AbstractVector{<:Quantity}, hi::Quantity)
   ux = _sampleunit(x)
-  hiq = withunit(hi, ux)
   # classification happens on plain numbers in a single unit, then the class limits are
   # restored so the table speaks the same unit as the observations
-  ftable = frequencytable(ustrip.(uconvert.(ux, x)), ustrip(uconvert(ux, hiq)))
+  ftable = frequencytable(ustrip.(uconvert.(ux, x)), ustrip(uconvert(ux, hi)))
   ftable.LI = ftable.LI * ux
   ftable.Xi = ftable.Xi * ux
   ftable.LS = ftable.LS * ux
@@ -141,7 +154,12 @@ The class limits are returned in the unit of `x` when it carries `Unitful` quant
 and unitless otherwise.
 
 # Returns
-- `DataFrame`: A DataFrame containing the frequency table.
+- `DataFrame`: A DataFrame with a row per class, from the class of the smallest value to the class of the largest one (the empty classes included, with frequency zero), and the columns:
+  - `LI`, `Xi`, `LS`: the lower limit, the center and the upper limit of the class. A class is the interval ``[LI, LS)``, closed on the left, so a value on a limit belongs to the class that starts there (12 is in the class 12-14, not in 10-12);
+  - `fi`: the absolute frequency, the number of observations in the class;
+  - `Fi`: the cumulative absolute frequency;
+  - `fri`: the relative frequency, in percent of the observations;
+  - `Fri`: the cumulative relative frequency, in percent.
 
 # Example
 ```julia-repl
@@ -151,45 +169,33 @@ julia> x = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0];
 
 # Calculate the frequency table with auto class width
 julia> frequencytable(x)
-4×7 DataFrame
- Row │ LI       Xi       LS       fi     Fi     fri      Fri     
+3×7 DataFrame
+ Row │ LI       Xi       LS       fi     Fi     fri      Fri
      │ Float64  Float64  Float64  Int64  Int64  Float64  Float64
 ─────┼───────────────────────────────────────────────────────────
-   1 │    10.0     12.5     15.0      2      2     20.0     20.0
-   2 │    15.0     17.5     20.0      3      5     30.0     50.0
-   3 │    20.0     22.5     25.0      4      9     40.0     90.0
-   4 │    25.0     27.5     30.0      1     10     10.0    100.0
+   1 │    10.0     12.5     15.0      3      3     30.0     30.0
+   2 │    15.0     17.5     20.0      4      7     40.0     70.0
+   3 │    20.0     22.5     25.0      3     10     30.0    100.0
 ```
 """
-function frequencytable(x::AbstractVector{<:Real})
-  h = _amplitude(x)
-  k = _sturges(length(x))
-  hi = _classbreadth(h, k)
-  frequencytable(x, hi)
-end
+frequencytable(x::AbstractVector{<:Real}) = frequencytable(x, _autowidth(x))
 
-function frequencytable(x::AbstractVector{<:Quantity})
-  ux = _sampleunit(x)
-  h = ustrip(uconvert(ux, _amplitude(x)))
-  k = _sturges(length(x))
-  hi = _classbreadth(h, k)
-  frequencytable(x, hi * ux)
-end
+frequencytable(x::AbstractVector{<:Quantity}) = frequencytable(x, _autowidth(x))
 
 """
-    frequencytable(g::Symbol, x::Symbol, data::AbstractDataFrame)
+    frequencytable(group::Symbol, x::Symbol, data::AbstractDataFrame)
 
 Creates a frequency table for grouped data in a DataFrame.
 
 # Arguments
-- `g::S`: The symbol representing the grouping variable.
-- `x::S`: The symbol representing the values variable.
+- `group::Symbol`: The column holding the grouping variable.
+- `x::Symbol`: The column holding the values variable.
 - `data::AbstractDataFrame`: The DataFrame containing the data.
 
 # Units
 
-The value column may hold either plain numbers or `Unitful` quantities; the class limits
-are returned in the same form.
+The value column may hold either plain numbers or `Unitful` quantities (the class width
+must then be a quantity too); the class limits are returned in the same form.
 
 # Returns
 - `DataFrame`: A DataFrame containing the frequency table for each group.
@@ -198,7 +204,7 @@ are returned in the same form.
 ```julia-repl
 julia> using DataFrames
 
-# Define the data'
+# Define the data
 julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0];
 julia> species = ["Oak", "Oak", "Oak", "Oak", "Oak", "Pine", "Pine", "Pine", "Pine", "Pine"];
 julia> data = DataFrame(species=species, diameters=diameters);
@@ -206,34 +212,34 @@ julia> data = DataFrame(species=species, diameters=diameters);
 # Calculate the frequency table by group with auto class width
 julia> frequencytable(:species, :diameters, data)
 8×8 DataFrame
- Row │ species  LI       Xi       LS       fi     Fi     fri      Fri     
+ Row │ species  LI       Xi       LS       fi     Fi     fri      Fri
      │ String   Float64  Float64  Float64  Int64  Int64  Float64  Float64
 ─────┼────────────────────────────────────────────────────────────────────
    1 │ Oak         10.0     11.0     12.0      1      1     20.0     20.0
-   2 │ Oak         12.0     13.0     14.0      1      2     20.0     40.0
-   3 │ Oak         14.0     15.0     16.0      1      3     20.0     60.0
-   4 │ Oak         16.0     17.0     18.0      2      5     40.0    100.0
-   5 │ Pine        18.0     19.0     20.0      1      1     20.0     20.0
-   6 │ Pine        20.0     21.0     22.0      2      3     40.0     60.0
+   2 │ Oak         12.0     13.0     14.0      2      3     40.0     60.0
+   3 │ Oak         14.0     15.0     16.0      1      4     20.0     80.0
+   4 │ Oak         16.0     17.0     18.0      1      5     20.0    100.0
+   5 │ Pine        18.0     19.0     20.0      2      2     40.0     40.0
+   6 │ Pine        20.0     21.0     22.0      1      3     20.0     60.0
    7 │ Pine        22.0     23.0     24.0      1      4     20.0     80.0
    8 │ Pine        24.0     25.0     26.0      1      5     20.0    100.0
 ```
 """
-function frequencytable(g::Symbol, x::Symbol, data::AbstractDataFrame)
-  combine(groupby(data, g)) do df
+function frequencytable(group::Symbol, x::Symbol, data::AbstractDataFrame)
+  combine(groupby(data, group)) do df
     frequencytable(df[:, x])
   end
 end
 
 """
-    frequencytable(g::Symbol, x::Symbol, hi::Union{Quantity,Real}, data::AbstractDataFrame)
+    frequencytable(group::Symbol, x::Symbol, hi::Union{Quantity,Real}, data::AbstractDataFrame)
 
 Creates a frequency table for grouped data in a DataFrame with a specified class width.
 
 # Arguments
-- `g::S`: The symbol representing the grouping variable.
-- `x::S`: The symbol representing the values variable.
-- `hi::Real`: The class width. When the value column carries units, a plain number is interpreted in the unit of that column.
+- `group::Symbol`: The column holding the grouping variable.
+- `x::Symbol`: The column holding the values variable.
+- `hi`: The class width: a number when the value column is unitless, a quantity when it carries units.
 - `data::AbstractDataFrame`: The DataFrame containing the data.
 
 # Returns
@@ -243,61 +249,63 @@ Creates a frequency table for grouped data in a DataFrame with a specified class
 ```julia-repl
 julia> using DataFrames
 
-# Define the data'
+# Define the data
 julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0];
 julia> species = ["Oak", "Oak", "Oak", "Oak", "Oak", "Pine", "Pine", "Pine", "Pine", "Pine"];
 julia> data = DataFrame(species=species, diameters=diameters);
 
-# Calculate the frequency table by group with with The class width of 2
+# Calculate the frequency table by group with a class width of 2
 julia> frequencytable(:species, :diameters, 2, data)
 8×8 DataFrame
- Row │ species  LI       Xi       LS       fi     Fi     fri      Fri     
+ Row │ species  LI       Xi       LS       fi     Fi     fri      Fri
      │ String   Float64  Float64  Float64  Int64  Int64  Float64  Float64
 ─────┼────────────────────────────────────────────────────────────────────
    1 │ Oak         10.0     11.0     12.0      1      1     20.0     20.0
-   2 │ Oak         12.0     13.0     14.0      1      2     20.0     40.0
-   3 │ Oak         14.0     15.0     16.0      1      3     20.0     60.0
-   4 │ Oak         16.0     17.0     18.0      2      5     40.0    100.0
-   5 │ Pine        18.0     19.0     20.0      1      1     20.0     20.0
-   6 │ Pine        20.0     21.0     22.0      2      3     40.0     60.0
+   2 │ Oak         12.0     13.0     14.0      2      3     40.0     60.0
+   3 │ Oak         14.0     15.0     16.0      1      4     20.0     80.0
+   4 │ Oak         16.0     17.0     18.0      1      5     20.0    100.0
+   5 │ Pine        18.0     19.0     20.0      2      2     40.0     40.0
+   6 │ Pine        20.0     21.0     22.0      1      3     20.0     60.0
    7 │ Pine        22.0     23.0     24.0      1      4     20.0     80.0
    8 │ Pine        24.0     25.0     26.0      1      5     20.0    100.0
 ```
 """
-function frequencytable(g::Symbol, x::Symbol, hi::Union{Quantity,Real}, data::AbstractDataFrame)
-  combine(groupby(data, g)) do df
+function frequencytable(group::Symbol, x::Symbol, hi::Union{Quantity,Real}, data::AbstractDataFrame)
+  combine(groupby(data, group)) do df
     frequencytable(df[:, x], hi)
   end
 end
 
 """
-    diametrictable(d::AbstractVector{<:Len}, hi::Union{Len,Real}; plot_area::Union{Area,Real}=1.0u"ha")
-    diametrictable(d::AbstractVector{<:Real}, hi::Real; plot_area::Real=1.0)
+    diametrictable(d::AbstractVector{<:Length}, hi::Length; plotarea::Area=1.0u"ha")
 
-Creates a diametric table for a vector of diameter values given a class width and plot area.
+Creates a diametric table for a vector of diameters at breast height given a class width and plot area.
 
 # Arguments
-- `d::AbstractVector{<:Len}`: The vector of diameter values.
-- `hi::Len`: The class width.
-- `plot_area::Area=1.0u"ha"`: The sampled plot area.
+- `d::AbstractVector{<:Length}`: The vector of diameters at breast height.
+- `hi::Length`: The class width.
+- `plotarea::Area=1.0u"ha"`: The sampled plot area.
 
 # Units
 
-Unlike the general-purpose [`frequencytable`](@ref), this function is diameter-specific,
-so plain numbers are promoted with the package defaults: diameters and class widths in
-centimeters (`cm`) and the plot area in hectares (`ha`). The returned table always carries
-units:
+Unlike the general-purpose [`frequencytable`](@ref), this function is diameter-specific:
+diameters, class width and plot area must all carry units, and any length and area unit may
+be used (imperial included). The returned table carries units:
 
 - `LI`, `Xi`, `LS` in the unit of `d`;
-- `g`, `ng` and `∑ng` in square feet (`ft^2`) when `d` is imperial and square meters (`m^2`) otherwise;
-- `fi_ha` and `Fi_ha` per acre (`ac^-1`) when `d` is imperial and per hectare (`ha^-1`) otherwise, with `ng_ha` and `∑ng_ha` following the same reference area.
+- `g`, `ng` and `Ng` in square feet (`ft^2`) when `d` is imperial and square meters (`m^2`) otherwise, where `g` is the basal area of the class center `Xi`, `ng` the basal area of the class (`fi` trees of area `g`) and `Ng` its cumulative sum (uppercase marks the cumulative value, as in `fi` and `Fi`);
+- `Ni` and `NFi` per acre (`ac^-1`) when `d` is imperial and per hectare (`ha^-1`) otherwise, with `Gi` and `GFi` following the same reference area.
 
 The per-area columns are omitted when the plot already covers exactly one reference area
 (1 ha in the metric system, 1 ac in the imperial one), since the expansion would be a
 no-op.
 
 # Returns
-- `DataFrame`: A DataFrame containing the diametric table.
+- `DataFrame`: A DataFrame with the columns of [`frequencytable`](@ref) (`LI`, `Xi`, `LS`, `fi`, `Fi`, `fri`, `Fri`, the classes being the intervals ``[LI, LS)``) plus:
+  - `g`: the basal area of the tree of the class center, ``g = \\pi X_i^2 / 4``;
+  - `ng`: the basal area of the class in the plot, ``fi \\, g``, and `Ng` its cumulative sum;
+  - `Ni`, `NFi`: the number of trees of the class and its cumulative sum, per hectare (per acre if imperial);
+  - `Gi`, `GFi`: the basal area of the class and its cumulative sum, per hectare (per acre if imperial).
 
 # Example
 ```julia-repl
@@ -305,26 +313,21 @@ no-op.
 # Define the vector of diameter values
 julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0]u"cm";
 
-# Calculate the diametric table with The class width of 2 cm and plot area of 500 m² (0.05 ha)
-julia> diametrictable(diameters, 2u"cm", plot_area=500u"m^2")
+# Calculate the diametric table with a class width of 2 cm and plot area of 500 m² (0.05 ha)
+julia> diametrictable(diameters, 2u"cm", plotarea=500u"m^2")
 8×14 DataFrame
- Row │ LI       Xi       LS       fi     Fi     fri      Fri      g              ng             ∑ng            fi_ha       Fi_ha        ng_ha              ∑ng_ha
-     │ Quantity Quantity Quantity Int64  Int64  Float64  Float64  Quantity       Quantity       Quantity       Quantity    Quantity     Quantity           Quantity
-─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1 │ 10.0 cm  11.0 cm  12.0 cm      1      1     10.0     10.0  0.0095 m^2     0.0095 m^2     0.0095 m^2     20.0 ha^-1  20.0 ha^-1   0.190066 m^2 ha^-1  0.190066 m^2 ha^-1
-  ⋮  │   ⋮        ⋮        ⋮        ⋮      ⋮       ⋮        ⋮          ⋮              ⋮              ⋮             ⋮           ⋮              ⋮                  ⋮
-
-# the same call without units: diameters and class width in cm, plot area in ha
-julia> diametrictable([10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0], 2, plot_area=0.05)
+ Row │ LI         Xi         LS         fi     Fi     fri      Fri      g               ng              Ng              Ni          NFi          Gi                  GFi
+     │ Quantity…  Quantity…  Quantity…  Int64  Int64  Float64  Float64  Quantity…       Quantity…       Quantity…       Quantity…   Quantity…    Quantity…           Quantity…
+─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 │   10.0 cm    11.0 cm    12.0 cm      1      1     10.0     10.0  0.00950332 m^2  0.00950332 m^2  0.00950332 m^2  20.0 ha^-1   20.0 ha^-1  0.190066 m^2 ha^-1  0.190066 m^2 ha^-1
+   2 │   12.0 cm    13.0 cm    14.0 cm      2      3     20.0     30.0   0.0132732 m^2   0.0265465 m^2   0.0360498 m^2  40.0 ha^-1   60.0 ha^-1  0.530929 m^2 ha^-1  0.720996 m^2 ha^-1
+  ⋮
 ```
 """
-function diametrictable(d::AbstractVector{<:Len}, hi::Union{Len,Real}; plot_area::Union{Area,Real}=1.0u"ha")
-  ud = _sampleunit(d)
-  hi = withunit(hi, ud)
-  plot_area = withunit(plot_area, AUNIT)
+function diametrictable(d::AbstractVector{<:Length}, hi::Length; plotarea::Area=1.0u"ha")
   if hi <= zero(hi)
     throw(DomainError("The class width must be positive."))
-  elseif plot_area <= zero(plot_area)
+  elseif plotarea <= zero(plotarea)
     throw(DomainError("The plot area must be positive."))
   elseif any(x -> x <= zero(x), d)
     throw(DomainError("Diameters must be positive"))
@@ -332,36 +335,31 @@ function diametrictable(d::AbstractVector{<:Len}, hi::Union{Len,Real}; plot_area
   ftable = frequencytable(d, hi)
   ftable.g = basalarea.(ftable.Xi)
   ftable.ng = ftable.fi .* ftable.g
-  ftable.∑ng = cumsum(ftable.ng)
-  # expansion factor to the reference area of the system the diameters were measured in
-  EF = expansionfactor(ud, plot_area)
+  ftable.Ng = cumsum(ftable.ng)
+  # expansion factor to the reference area (ha or ac) of the plot area
+  EF = expansionfactor(plotarea)
   if !isone(ustrip(EF))
-    ftable.fi_ha = ftable.fi * EF
-    ftable.Fi_ha = cumsum(ftable.fi_ha)
-    ftable.ng_ha = ftable.ng * EF
-    ftable.∑ng_ha = cumsum(ftable.ng_ha)
+    ftable.Ni = ftable.fi * EF
+    ftable.NFi = cumsum(ftable.Ni)
+    ftable.Gi = ftable.ng * EF
+    ftable.GFi = cumsum(ftable.Gi)
   end
   return ftable
 end
 
-diametrictable(d::AbstractVector{<:Real}, hi::Union{Len,Real}; plot_area::Union{Area,Real}=1.0) =
-  diametrictable(d * DUNIT, hi; plot_area=withunit(plot_area, AUNIT))
-
 """
-    diametrictable(d::AbstractVector{<:Len}; plot_area::Union{Area,Real}=1.0u"ha")
-    diametrictable(d::AbstractVector{<:Real}; plot_area::Real=1.0)
+    diametrictable(d::AbstractVector{<:Length}; plotarea::Area=1.0u"ha")
 
-Creates a diametric table for a vector of diameter values, choosing the class width
+Creates a diametric table for a vector of diameters at breast height, choosing the class width
 automatically from Sturges' rule.
 
 # Arguments
-- `d::AbstractVector{<:Len}`: The vector of diameter values.
-- `plot_area::Area=1.0u"ha"`: The sampled plot area.
+- `d::AbstractVector{<:Length}`: The vector of diameters at breast height.
+- `plotarea::Area=1.0u"ha"`: The sampled plot area.
 
 # Units
 
-Plain numbers are taken to be diameters in centimeters (`cm`) and a plot area in hectares
-(`ha`). See the method with an explicit class width for the units of every output column.
+Same as [`diametrictable(d, hi)`](@ref): diameters and plot area must carry units, and the returned table carries units.
 
 # Returns
 - `DataFrame`: A DataFrame containing the diametric table.
@@ -373,41 +371,32 @@ Plain numbers are taken to be diameters in centimeters (`cm`) and a plot area in
 julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0]u"cm";
 
 # Calculate the diametric table with auto class width and plot area of 500 m² (0.05 ha)
-julia> diametrictable(diameters, plot_area=500u"m^2")
-4×14 DataFrame
- Row │ LI       Xi       LS       fi     Fi     fri      Fri      g            ng           ∑ng          fi_ha       Fi_ha       ng_ha                ∑ng_ha
-     │ Quantity Quantity Quantity Int64  Int64  Float64  Float64  Quantity     Quantity     Quantity     Quantity    Quantity    Quantity             Quantity
-─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1 │ 10.0 cm  12.5 cm  15.0 cm      2      2     20.0     20.0  0.0122718 m^2 0.0245437 m^2 0.0245437 m^2 40.0 ha^-1 40.0 ha^-1 0.490874 m^2 ha^-1  0.490874 m^2 ha^-1
-  ⋮  │   ⋮        ⋮        ⋮        ⋮      ⋮       ⋮        ⋮          ⋮            ⋮            ⋮            ⋮          ⋮               ⋮                   ⋮
+julia> diametrictable(diameters, plotarea=500u"m^2")
+3×14 DataFrame
+ Row │ LI         Xi         LS         fi     Fi     fri      Fri      g              ng             Ng             Ni          NFi          Gi                  GFi
+     │ Quantity…  Quantity…  Quantity…  Int64  Int64  Float64  Float64  Quantity…      Quantity…      Quantity…      Quantity…   Quantity…    Quantity…           Quantity…
+─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 │   10.0 cm    12.5 cm    15.0 cm      3      3     30.0     30.0  0.0122718 m^2  0.0368155 m^2  0.0368155 m^2  60.0 ha^-1   60.0 ha^-1  0.736311 m^2 ha^-1  0.736311 m^2 ha^-1
+   2 │   15.0 cm    17.5 cm    20.0 cm      4      7     40.0     70.0  0.0240528 m^2  0.0962113 m^2   0.133027 m^2  80.0 ha^-1  140.0 ha^-1   1.92423 m^2 ha^-1   2.66054 m^2 ha^-1
+  ⋮
 ```
 """
-function diametrictable(d::AbstractVector{<:Len}; plot_area::Union{Area,Real}=1.0u"ha")
-  ud = _sampleunit(d)
-  h = ustrip(uconvert(ud, _amplitude(d)))
-  k = _sturges(length(d))
-  hi = _classbreadth(h, k)
-  diametrictable(d, hi * ud, plot_area=plot_area)
-end
-
-diametrictable(d::AbstractVector{<:Real}; plot_area::Union{Area,Real}=1.0) =
-  diametrictable(d * DUNIT; plot_area=withunit(plot_area, AUNIT))
+diametrictable(d::AbstractVector{<:Length}; plotarea::Area=1.0u"ha") = diametrictable(d, _autowidth(d), plotarea=plotarea)
 
 """
-    diametrictable(g::Symbol, d::Symbol, data::AbstractDataFrame; plot_area::Real=1.0)
+    diametrictable(group::Symbol, d::Symbol, data::AbstractDataFrame; plotarea::Area=1.0u"ha")
 
 Creates a diametric table for grouped data in a DataFrame.
 
 # Arguments
-- `g::S`: The symbol representing the grouping variable.
-- `d::S`: The symbol representing the diameter values variable.
+- `group::Symbol`: The column holding the grouping variable.
+- `d::Symbol`: The column holding the diameters at breast height.
 - `data::AbstractDataFrame`: The DataFrame containing the data.
-- `plot_area::Area=1.0u"ha"`: The sampled plot area. A plain number is taken to be hectares.
+- `plotarea::Area=1.0u"ha"`: The sampled plot area.
 
 # Units
 
-The diameter column may hold either plain numbers (taken to be centimeters) or `Unitful`
-quantities. The output columns carry units in both cases.
+The diameter column must hold `Unitful` quantities, and the output columns carry units.
 
 # Returns
 - `DataFrame`: A DataFrame containing the diametric table for each group.
@@ -416,44 +405,39 @@ quantities. The output columns carry units in both cases.
 ```julia-repl
 julia> using DataFrames
 
-# Define the data'
+# Define the data
 julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0]u"cm";
 julia> species = ["Oak", "Oak", "Oak", "Oak", "Oak", "Pine", "Pine", "Pine", "Pine", "Pine"];
 julia> data = DataFrame(species=species, diameters=diameters);
 
-# Calculate the diametric table by group with with auto class width and plot area of 0.05 ha (500 m²)
-julia> diametrictable(:species, :diameters, data, plot_area=0.05u"ha")
+# Calculate the diametric table by group with auto class width and plot area of 0.05 ha (500 m²)
+julia> diametrictable(:species, :diameters, data, plotarea=0.05u"ha")
 8×15 DataFrame
- Row │ species  LI       Xi       LS       fi     Fi     fri      Fri      g           ng          ∑ng         fi_ha    Fi_ha    ng_ha     ∑ng_ha   
-     │ String   Float64  Float64  Float64  Int64  Int64  Float64  Float64  Float64     Float64     Float64     Float64  Float64  Float64   Float64
-─────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1 │ Oak         10.0     11.0     12.0      1      1     20.0     20.0  0.00950332  0.00950332  0.00950332     20.0     20.0  0.190066  0.190066
-   2 │ Oak         12.0     13.0     14.0      1      2     20.0     40.0  0.0132732   0.0132732   0.0227765      20.0     40.0  0.265465  0.455531
-   3 │ Oak         14.0     15.0     16.0      1      3     20.0     60.0  0.0176715   0.0176715   0.040448       20.0     60.0  0.353429  0.80896
-   4 │ Oak         16.0     17.0     18.0      2      5     40.0    100.0  0.022698    0.045396    0.085844       40.0    100.0  0.90792   1.71688
-   5 │ Pine        18.0     19.0     20.0      1      1     20.0     20.0  0.0283529   0.0283529   0.0283529      20.0     20.0  0.567057  0.567057
-   6 │ Pine        20.0     21.0     22.0      2      3     40.0     60.0  0.0346361   0.0692721   0.097625       40.0     60.0  1.38544   1.9525
-   7 │ Pine        22.0     23.0     24.0      1      4     20.0     80.0  0.0415476   0.0415476   0.139173       20.0     80.0  0.830951  2.78345
-   8 │ Pine        24.0     25.0     26.0      1      5     20.0    100.0  0.0490874   0.0490874   0.18826        20.0    100.0  0.981748  3.7652
+ Row │ species  LI         Xi         LS         fi     Fi     fri      Fri      g               ng              Ng              Ni          NFi          Gi                  GFi
+     │ String   Quantity…  Quantity…  Quantity…  Int64  Int64  Float64  Float64  Quantity…       Quantity…       Quantity…       Quantity…   Quantity…    Quantity…           Quantity…
+─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 │ Oak        10.0 cm    11.0 cm    12.0 cm      1      1     20.0     20.0  0.00950332 m^2  0.00950332 m^2  0.00950332 m^2  20.0 ha^-1   20.0 ha^-1  0.190066 m^2 ha^-1  0.190066 m^2 ha^-1
+   2 │ Oak        12.0 cm    13.0 cm    14.0 cm      2      3     40.0     60.0   0.0132732 m^2   0.0265465 m^2   0.0360498 m^2  40.0 ha^-1   60.0 ha^-1  0.530929 m^2 ha^-1  0.720996 m^2 ha^-1
+  ⋮
 ```
 """
-function diametrictable(g::Symbol, d::Symbol, data::AbstractDataFrame; plot_area::Union{Area,Real}=1.0)
-  combine(groupby(data, g)) do df
-    diametrictable(df[:, d], plot_area=plot_area)
+function diametrictable(group::Symbol, d::Symbol, data::AbstractDataFrame; plotarea::Area=1.0u"ha")
+  combine(groupby(data, group)) do df
+    diametrictable(df[:, d], plotarea=plotarea)
   end
 end
 
 """
-    diametrictable(g::Symbol, d::Symbol, hi::Union{Len,Real}, data::AbstractDataFrame; plot_area::Union{Area,Real}=1.0u"ha")
+    diametrictable(group::Symbol, d::Symbol, hi::Length, data::AbstractDataFrame; plotarea::Area=1.0u"ha")
 
 Creates a diametric table for grouped data in a DataFrame with a specified class width.
 
 # Arguments
-- `g::S`: The symbol representing the grouping variable.
-- `d::S`: The symbol representing the diameter values variable.
-- `hi::Len`: The class width. A plain number is taken to be centimeters, or the unit of the diameter column when it carries one.
+- `group::Symbol`: The column holding the grouping variable.
+- `d::Symbol`: The column holding the diameters at breast height.
+- `hi::Length`: The class width.
 - `data::AbstractDataFrame`: The DataFrame containing the data.
-- `plot_area::Area=1.0u"ha"`: The sampled plot area. A plain number is taken to be hectares.
+- `plotarea::Area=1.0u"ha"`: The sampled plot area.
 
 # Returns
 - `DataFrame`: A DataFrame containing the diametric table for each group.
@@ -462,27 +446,24 @@ Creates a diametric table for grouped data in a DataFrame with a specified class
 ```julia-repl
 julia> using DataFrames
 
-# Define the data'
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0];
+# Define the data
+julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0]u"cm";
 julia> species = ["Oak", "Oak", "Oak", "Oak", "Oak", "Pine", "Pine", "Pine", "Pine", "Pine"];
 julia> data = DataFrame(species=species, diameters=diameters);
 
-# Calculate the diametric table by group with with The class width of 3 and plot area of 0.05 ha (500 m²)
-julia> diametrictable(:species, :diameters, 3, data, plot_area=0.05)
+# Calculate the diametric table by group with a class width of 3 cm and plot area of 0.05 ha (500 m²)
+julia> diametrictable(:species, :diameters, 3u"cm", data, plotarea=0.05u"ha")
 6×15 DataFrame
- Row │ species  LI       Xi       LS       fi     Fi     fri      Fri      g          ng         ∑ng        fi_ha    Fi_ha    ng_ha     ∑ng_ha   
-     │ String   Float64  Float64  Float64  Int64  Int64  Float64  Float64  Float64    Float64    Float64    Float64  Float64  Float64   Float64
-─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1 │ Oak         12.0     13.5     15.0      3      3     60.0     60.0  0.0143139  0.0429416  0.0429416     60.0     60.0  0.858833  0.858833
-   2 │ Oak         15.0     16.5     18.0      1      4     20.0     80.0  0.0213825  0.0213825  0.0643241     20.0     80.0  0.427649  1.28648
-   3 │ Oak         18.0     19.5     21.0      1      5     20.0    100.0  0.0298648  0.0298648  0.0941889     20.0    100.0  0.597295  1.88378
-   4 │ Pine        18.0     19.5     21.0      2      2     40.0     40.0  0.0298648  0.0597295  0.0597295     40.0     40.0  1.19459   1.19459
-   5 │ Pine        21.0     22.5     24.0      1      3     20.0     60.0  0.0397608  0.0397608  0.0994903     20.0     60.0  0.795216  1.98981
-   6 │ Pine        24.0     25.5     27.0      2      5     40.0    100.0  0.0510705  0.102141   0.201631      40.0    100.0  2.04282   4.03263
+ Row │ species  LI         Xi         LS         fi     Fi     fri      Fri      g               ng              Ng              Ni          NFi          Gi                  GFi
+     │ String   Quantity…  Quantity…  Quantity…  Int64  Int64  Float64  Float64  Quantity…       Quantity…       Quantity…       Quantity…   Quantity…    Quantity…           Quantity…
+─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 │ Oak         9.0 cm    10.5 cm    12.0 cm      1      1     20.0     20.0  0.00865901 m^2  0.00865901 m^2  0.00865901 m^2  20.0 ha^-1   20.0 ha^-1   0.17318 m^2 ha^-1   0.17318 m^2 ha^-1
+   2 │ Oak        12.0 cm    13.5 cm    15.0 cm      2      3     40.0     60.0   0.0143139 m^2   0.0286278 m^2   0.0372868 m^2  40.0 ha^-1   60.0 ha^-1  0.572555 m^2 ha^-1  0.745736 m^2 ha^-1
+  ⋮
 ```
 """
-function diametrictable(g::Symbol, d::Symbol, hi::Union{Len,Real}, data::AbstractDataFrame; plot_area::Union{Area,Real}=1.0)
-  combine(groupby(data, g)) do df
-    diametrictable(df[:, d], hi, plot_area=plot_area)
+function diametrictable(group::Symbol, d::Symbol, hi::Length, data::AbstractDataFrame; plotarea::Area=1.0u"ha")
+  combine(groupby(data, group)) do df
+    diametrictable(df[:, d], hi, plotarea=plotarea)
   end
 end

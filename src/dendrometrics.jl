@@ -1,624 +1,432 @@
 """
-    dm(d::AbstractVector{<:Len})
+    arithmeticmeandiameter(d::AbstractVector{<:Length})
 
-calculates the arithmetic mean diameter dbar of a forest stand or sample.
+Calculates the arithmetic mean diameter (``\\bar{D}``) of a forest stand or sample.
 
-# arguments
+# Arguments
 - `d`: vector of diameters at breast height with length units (e.g., cm or inch).
 
-# returns
+# Returns
 - `Quantity`: the arithmetic mean diameter in the same units as input.
 
-# mathematical basis
-the simple average of all measured diameters
+# Mathematical basis
+The simple average of all measured diameters:
+
 ```math
-\\bar{d} = \\frac{\\sum_{i=1}^{n} d_i}{n}
+\\bar{D} = \\frac{\\sum_{i=1}^{n} D_i}{n}
 ```
 
-# technical description
+# Technical description
 
-the arithmetic mean is primarily used to characterize the frequency distribution of a stand
-it is essential for biological research and serves as the base for hohenadl diameters
-in even aged stands the arithmetic mean is generally smaller than the quadratic mean diameter dg
-following the sequence dminus < dm < dg < dw < dz < dplus
-unlike dg the arithmetic mean is highly sensitive to thinning interventions
+The arithmetic mean is primarily used to characterize the frequency distribution of a stand.
+It is essential for biological research and serves as the base for the Hohenadl diameters.
+In even-aged stands the arithmetic mean is generally smaller than the quadratic mean
+diameter ``D_g``, following the sequence ``D_- < \\bar{D} < D_g < D_w < d_z < D_+``. Unlike
+``D_g``, the arithmetic mean is highly sensitive to thinning interventions.
 
-# examples
+# Examples
 
 ```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> dm(diameters)
+julia> d = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
+julia> arithmeticmeandiameter(d)
 17.25 cm
 ```
+
+# References
+Finger, C. A. G. (2006). *Biometria Florestal*. Santa Maria: UFSM, Section 12.1.1, p. 177.
 """
-dm(d::AbstractVector{<:Len}) = mean(d)
-
-dm(d::AbstractVector{<:Real}) = dm(d * DUNIT)
+arithmeticmeandiameter(d::AbstractVector{<:Length}) = mean(d)
 
 """
-    dg(d::AbstractVector{<:Len})
+    quadraticmeandiameter(d::AbstractVector{<:Length})
 
-Calculate the quadratic mean diameter (dg) of a forest stand or sample. This metric represents the diameter of the tree with the mean basal area.
+Calculates the quadratic mean diameter (``D_g``) of a forest stand or sample. This metric
+represents the diameter of the tree with the mean basal area.
 
-# arguments
+# Arguments
 - `d`: vector of diameters at breast height with length units (e.g., cm or inch).
 
-# returns
+# Returns
 - `Quantity`: quadratic mean diameter in the same unit as input.
 
-# mathematical basis
-calculated as the square root of the average of squared diameters
-```math
-d_g = \\sqrt{\\frac{\\sum_{i=1}^{n} d_i^2}{n}}
-```
-
-alternatively derived from arithmetic mean and variance
+# Mathematical basis
+Calculated as the square root of the average of squared diameters:
 
 ```math
-d_g = \\sqrt{\\bar{d}^2 + s_d^2}
+D_g = \\sqrt{\\frac{\\sum_{i=1}^{n} D_i^2}{n}}
 ```
 
-# technical description
+Alternatively, derived from the arithmetic mean and the variance:
 
-dg is fundamental in forest mensuration and production models
-it is preferred over arithmetic mean because it correlates stronger with stand volume
-it gives additional weight to larger diameters which constitute more biomass
-in even aged stands dg is always greater than or equal to the arithmetic mean.
+```math
+D_g = \\sqrt{\\bar{D}^2 + s_D^2}
+```
 
-# examples
+# Technical description
+
+``D_g`` is fundamental in forest mensuration and production models. It is preferred over the
+arithmetic mean because it correlates more strongly with stand volume, giving additional weight
+to the larger diameters, which hold most of the biomass. In even-aged stands ``D_g`` is always
+greater than or equal to the arithmetic mean.
+
+# Examples
 
 ```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> dg(diameters)
+julia> d = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
+julia> quadraticmeandiameter(d)
 17.779904386694547 cm
 ```
+
+# References
+Finger, C. A. G. (2006). *Biometria Florestal*. Santa Maria: UFSM, Section 12.1.2, p. 178.
 """
-dg(d::AbstractVector{<:Len}) = √(mean(abs2, d))
-
-dg(d::AbstractVector{<:Real}) = dg(d * DUNIT)
+quadraticmeandiameter(d::AbstractVector{<:Length}) = √(mean(abs2, d))
 
 """
-    dw(d::AbstractVector{<:Len})
+    weisediameter(d::AbstractVector{<:Length})
 
-calculates weises diameter dw corresponding to the 60th percentile of the cumulative frequency distribution.
+Calculates Weise's diameter (``D_w``), the diameter of the tree at the position where 60 % of
+the trees are below it, with the diameters in increasing order.
 
-# arguments
+# Arguments
 - `d`: vector of diameters at breast height with length units (e.g., cm or inch).
 
-# returns
-- `Quantity`: diameter value at the 60th percentile in the same unit as input.
+# Returns
+- `Quantity`: diameter of the tree at the 60 % position, in the same unit as input.
 
-# mathematical basis
-obtained from the inverse cumulative distribution function at 0.6
+# Mathematical basis
+With the ``n`` diameters sorted in increasing order, it is the one at the position
+``\\operatorname{round}(0.6\\,n)``, a measured diameter (no interpolation):
+
 ```math
-d_w = F^{-1}(0.6)
+D_w = D_{(\\operatorname{round}(0.6\\,n))}
 ```
 
-# technical description
+# Technical description
 
-proposed by Weise 1880 this diameter approximates the tree with mean stand volume
-in even aged stands it separates the 60 percent smallest trees from the 40 percent largest.
+Proposed by Weise (1880), this diameter approximates the tree with mean stand volume. In
+even-aged stands it separates the 60 percent smallest trees from the 40 percent largest.
 
-# examples
+# References
+Machado, S. A. & Figueiredo Filho, A. (2003). *Dendrometria*. Curitiba: Ed. dos Autores, Section 2.6.4.
+Finger, C. A. G. (2006). *Biometria Florestal*. Santa Maria: UFSM, Section 12.1.3, p. 180.
+
+# Examples
 
 ```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> dw(diameters)
-18.6 cm
+julia> d = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
+julia> weisediameter(d)
+18.0 cm
 ```
 """
-dw(d::AbstractVector{<:Len}) = quantile(d, 0.6)
-
-dw(d::AbstractVector{<:Real}) = dw(d * DUNIT)
+weisediameter(d::AbstractVector{<:Length}) = sort(d)[max(1, round(Int, 0.6length(d)))]
 
 """
-    dz(d::AbstractVector{<:Len})
+    centralbasalareadiameter(d::AbstractVector{<:Length})
 
-calculates the basal area central diameter dz also known as the diameter of the median basal area.
+Calculates the diameter of the central basal area tree (``d_z``), the diameter at the point
+where the cumulative basal area reaches half of the total.
 
-# arguments
+# Arguments
 - `d`: vector of diameters at breast height with length units (e.g., cm or inch).
 
-# returns
-- `Quantity`: central diameter value in the same unit as input.
+# Returns
+- `Quantity`: diameter of the tree where the cumulative basal area reaches half of the total,
+  in the same unit as input.
 
-# mathematical basis
-represents the diameter corresponding to the median individual basal area
-mathematically simplified to the square root of the median of squared diameters
+# Mathematical basis
+With the ``n`` diameters sorted in increasing order, it is the first one ``D_{(k)}`` whose
+cumulative basal area reaches half of the total, a measured diameter (no interpolation):
+
 ```math
-d_z = \\sqrt{\\text{median}(d^2)}
-
+d_z = D_{(k)}, \\quad k = \\min\\left\\{ j : \\sum_{i=1}^{j} D_{(i)}^2 \\ge \\frac{1}{2} \\sum_{i=1}^{n} D_{(i)}^2 \\right\\}
 ```
 
-# technical description
+# Technical description
 
-the central diameter is defined as the value corresponding to the median of the basal area distribution
-it is a key reference diameter in relascopy bitterlichs method
-it is generally larger than the arithmetic mean diameter and often close to the quadratic mean diameter.
+It splits the basal area in two equal halves, one with the smaller trees and one with the larger
+ones, so it is larger than the diameter of the median tree. For grouped data the book interpolates
+inside the class where the half is reached; with the diameters of the trees it is the tree itself.
 
-# examples
+# Examples
 
 ```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> dz(diameters)
-17.266296649832007 cm
-
+julia> d = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
+julia> centralbasalareadiameter(d)
+19.5 cm
 ```
+
+# References
+Floriano, E. P. (2025). *Dendrometria*, 2nd edition, Section 2.2.11.
+Finger, C. A. G. (2006). *Biometria Florestal*. Santa Maria: UFSM, Section 12.1.4, p. 181.
 """
-dz(d::AbstractVector{<:Len}) = abs2.(d) |> median |> sqrt
+function centralbasalareadiameter(d::AbstractVector{<:Length})
+  sorted = sort(d)
+  basalarea = cumsum(abs2.(sorted))
+  return sorted[findfirst(≥(last(basalarea) / 2), basalarea)]
+end
 
-dz(d::AbstractVector{<:Real}) = dz(d * DUNIT)
 
-
-# Auxiliary function returning a NaN quantity in the unit of `x`, used when a metric
-# cannot be computed. Keeping the unit makes DataFrame columns type-consistent, so a
-# missing dominant diameter still reads as a diameter rather than a bare number.
-_nanlike(x::AbstractVector{<:Len}) = NaN64 * unit(first(x))
-
-# Auxiliary function that calculates the target number of dominant trees (k) for the plot.
-# Returns NaN if the sample size is insufficient.
-function dominantTreeCount(d::AbstractVector{<:Len}, area::Area)
-  # detect unit system and the matching dominant-tree sampling standard
+# Auxiliary function that calculates the target number of dominant trees (n_D) for the plot.
+# Returns 0 if the sample size is insufficient; callers then answer with `NaN * first(d)`, a
+# NaN that keeps the unit, so a missing dominant diameter still reads as a diameter and the
+# DataFrame columns stay type-consistent.
+function dominanttreecount(d::AbstractVector{<:Length}, area::Area)
+  # detect unit system from the plot area and the matching dominant-tree sampling standard
   # (100 trees/ha for metric, 40 trees/ac for imperial)
-  refarea = referencearea(unit(first(d)))
+  refarea = referencearea(area)
   standard = refarea == u"ha" ? 100 : 40
-  ntree = round(Int, ustrip(uconvert(refarea, standard * area)))
-  # validate against sample size
-  # return nan if we need more trees than available
-  if ntree <= 0 || ntree > length(d)
-    return NaN64
-  end
-  return ntree
+  nD = round(Int, ustrip(uconvert(refarea, standard * area)))
+  # validate against sample size: zero if we need more trees than available
+  return 0 < nD <= length(d) ? nD : 0
+end
+
+# Auxiliary function that picks the dominant trees: the indices of the nD thickest trees, or
+# `nothing` if the sample is insufficient.
+function _dominantindices(d::AbstractVector{<:Length}, area::Area)
+  nD = dominanttreecount(d, area)
+  return iszero(nD) ? nothing : partialsortperm(d, 1:nD, rev=true)
 end
 
 """
-    dd(d::AbstractVector{<:Len}, area::Area)
+    dominantdiameter(d::AbstractVector{<:Length}, area::Area)
 
-calculates the dominant diameter ddom based on Assmann's definition
-average of the 100 thickest trees per hectare or 40 per acre.
+Calculates the dominant diameter (``D_D``) based on Assmann's definition: the quadratic mean
+diameter of the 100 thickest trees per hectare or 40 per acre.
 
-# arguments
-- `d`: vector of diameters at breast height with length units (e.g., cm or inch). Plain numbers are taken to be centimeters.
-- `area`: total sampled area used to determine the number of dominant trees. A plain number is taken to be hectares.
+# Arguments
+- `d`: vector of diameters at breast height with length units (e.g., cm or inch).
+- `area`: total sampled area used to determine the number of dominant trees.
 
-# returns
-- `Quantity`: the arithmetic mean of the dominant trees in the same unit as input, or a `NaN` in that unit when the plot holds fewer trees than the dominant-tree standard requires.
+# Returns
+- `Quantity`: the quadratic mean diameter of the dominant trees in the same unit as input, or a `NaN` in that unit when the plot holds fewer trees than the dominant-tree standard requires.
 
-# technical description
-the dominant diameter is a stable stand variable used to characterize site productive capacity
-it uses the spatial density standard of 100 trees per hectare for metric systems
-or 40 trees per acre for imperial systems
-if the calculated number of trees exceeds the sample size the mean of the entire sample is returned.
+# Mathematical basis
+The number of dominant trees ``n_D`` is determined by the spatial density standard of
+100 trees per hectare (metric) or 40 trees per acre (imperial):
 
-# mathematical basis
-the number of trees k to select is determined by
-metric k = 100 * area_ha
-imperial k = 40 * area_ac
-then
 ```math
-d_{dom} = \\frac{\\sum_{i=1}^{k} d_{i}}{k}
-
+n_D = 100 \\times \\text{area}_{ha} \\qquad \\text{or} \\qquad n_D = 40 \\times \\text{area}_{ac}
 ```
 
-where di are the diameters sorted in descending order
+then
 
-# examples
+```math
+D_D = \\sqrt{\\frac{\\sum_{i=1}^{n_D} D_{(i)}^2}{n_D}}
+```
+
+where ``D_{(i)}`` are the diameters sorted in descending order.
+
+# Technical description
+
+The dominant diameter is a stable stand variable used to characterize the productive capacity
+of the site. If ``n_D`` exceeds the sample size, the result is `NaN`.
+
+# Examples
 
 ```julia-repl
-# metric example 100 per ha
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
+# metric example, 100 per ha
+julia> d = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
 julia> plotArea = 500u"m^2";
-julia> dd(diameters, plotArea)
-21.0 cm
-
-# without units: diameters in cm, area in ha
-julia> dd([10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0], 0.05)
-21.0 cm
+julia> dominantdiameter(d, plotArea)
+21.106870919205434 cm
 ```
+
+# References
+Finger, C. A. G. (2006). *Biometria Florestal*. Santa Maria: UFSM, Section 12.2.6.1, p. 187.
 """
-function dd(d::AbstractVector{<:Len}, area::Area)
-  # get target count of dominant trees
-  ntree = dominantTreeCount(d, area)
+function dominantdiameter(d::AbstractVector{<:Length}, area::Area)
+  idx = _dominantindices(d, area)
   # return nan (in the diameter unit) if sample is insufficient or invalid
-  isnan(ntree) && return _nanlike(d)
-  # calculate mean of the ntree thickest trees
-  return dm(partialsort(d, 1:Int(ntree), rev=true))
+  isnothing(idx) && return NaN * first(d)
+  # quadratic mean of the nD thickest trees (the diameter of their mean basal area)
+  return quadraticmeandiameter(d[idx])
 end
 
-dd(d::AbstractVector{<:Real}, area::Real) = dd(d * DUNIT, area * AUNIT)
-
 """
-    dh(d::AbstractVector{<:Len})
+    hohenaldiameters(d::AbstractVector{<:Length})
 
-calculates hohenadls diameters dminus and dplus
-these metrics represent one standard deviation below and above the mean diameter.
+Calculates Hohenadl's diameters ``D_-`` and ``D_+``. These metrics represent one standard
+deviation below and above the mean diameter.
 
-# arguments
+# Arguments
 - `d`: vector of diameters at breast height with length units (e.g., cm or inch).
 
-# returns
-- `NamedTuple`: containing keys `lower` (d-) and `upper` (d+) in the same units as input.
+# Returns
+- `NamedTuple`: containing keys `Dl` (``D_-``) and `Du` (``D_+``) in the same units as input.
 
-# mathematical basis
-calculated using arithmetic mean dbar and standard deviation s
+# Mathematical basis
+Calculated using the arithmetic mean ``\\bar{D}`` and the standard deviation ``s_D``:
+
 ```math
-d_- = \\bar{d} - s
-d_+ = \\bar{d} + s
-
+D_- = \\bar{D} - s_D \\qquad D_+ = \\bar{D} + s_D
 ```
 
-# technical description
+# Technical description
 
-lower hohenadl diameter dminus is calculated as dbar minus s where dbar is the mean diameter and s is the standard deviation
-approximately 16 percent of the trees have diameters below dminus representing one standard deviation below the mean
-upper hohenadl diameter dplus is calculated as dbar plus s
-approximately 84 percent of the trees have diameters below dplus representing one standard deviation above the mean
-these metrics are useful for understanding the variability and distribution of diameters within the stand
+Approximately 16 percent of the trees have diameters below ``D_-``, one standard deviation
+below the mean, and approximately 84 percent have diameters below ``D_+``, one standard
+deviation above the mean. These metrics are useful for understanding the variability and
+distribution of diameters within the stand.
 
-# examples
+# Examples
 
 ```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> hohenadl = dh(diameters)                        
-(dl = 12.708524468853764 cm, du = 21.791475531146236 cm)
+julia> d = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
+julia> hohenadl = hohenaldiameters(d)
+(Dl = 12.708524468853764 cm, Du = 21.791475531146236 cm)
 # access specific values
-julia> hohenadl.dl
+julia> hohenadl.Dl
 12.708524468853764 cm
-julia> hohenadl.du
+julia> hohenadl.Du
 21.791475531146236 cm
 
 ```
+
+# References
+Finger, C. A. G. (2006). *Biometria Florestal*. Santa Maria: UFSM, Section 12.1.5, p. 182.
 """
-function dh(d::AbstractVector{<:Len})
-  d̅ = dm(d)
-  s = std(d, mean=d̅)
-  d₋, d₊ = d̅ - s, d̅ + s
-  return (; dl=d₋, du=d₊)
+function hohenaldiameters(d::AbstractVector{<:Length})
+  dmean, sD = mean_and_std(d)
+  return (; Dl=dmean - sD, Du=dmean + sD)
 end
 
-dh(d::AbstractVector{<:Real}) = dh(d * DUNIT)
-
 """
-    dmetrics(d::AbstractVector{<:Len}, area::Area=0.0u"ha")
-    dmetrics(d::AbstractVector{<:Real}, area::Real=0.0)
+    standmetrics(d::AbstractVector{<:Length}, area::Area)
+    standmetrics(species::AbstractVector, plots::AbstractVector, d::AbstractVector{<:Length}, area::Area)
 
-Calculate a comprehensive set of dendrometric averages for a forest stand.
-Aggregates the arithmetic mean, quadratic mean, Hohenadl, Weise, central basal area, and dominant diameters.
+Calculates the structure of a stand from the diameters at breast height of the sampled trees: the number of trees, the basal area, the mean diameters and their dispersion, scaled to a hectare (or an acre). With the species and the plots of the trees, it gives the same metrics for each species together with the horizontal structure and the phytosociological indices of the community.
 
 # Arguments
-- `d`: vector of diameters at breast height with length units (e.g., cm or inch). Plain numbers are taken to be centimeters.
-- `area`: sampled area used for dominant diameter calculation. A plain number is taken to be hectares. Defaults to 0.0ha (which yields NaN for dominant diameter).
+- `d`: vector of diameters at breast height with length units (e.g., cm or inch).
+- `area`: the sampled area, as an `Area` quantity: the area of the plot, or, with several plots, the total sampled area (all the plots together).
+- `species`: the species of each tree, strings or symbols, in the order of `d`.
+- `plots`: the plot (sampling unit) of each tree, in the order of `d`.
 
 # Units
 
-Every diameter column is returned in the unit of `d`, so a stand measured in inches is
-summarised in inches. `dv` is a dimensionless percentage.
+The diameters are reported in the unit of `d`. The basal area `g` is in square meters (`m^2`), or square feet (`ft^2`) when the diameters are imperial, and `N` and `G` are expressed per hectare (`ha^-1`) in the metric system and per acre (`ac^-1`) in the imperial one. The other columns are dimensionless.
 
 # Returns
-- `DataFrame`: a single row dataframe containing:
-  - `dl`: lower Hohenadl diameter (mean minus standard deviation), representing the lower variability threshold (approx. 16% of trees are smaller).
-  - `dm`: arithmetic mean diameter, a basic measure of central tendency sensitive to thinning.
-  - `dg`: quadratic mean diameter, the diameter of the tree with mean basal area (closely correlated with volume).
-  - `dw`: Weise's diameter (60th percentile), approximating the tree with mean volume.
-  - `dz`: central basal area diameter, the median of the basal area distribution (key for relascopy).
-  - `dd`: dominant diameter, the mean of the thickest trees (100 per ha or 40 per ac), characterizing site capacity.
-  - `du`: upper Hohenadl diameter (mean plus standard deviation), representing the upper variability threshold (approx. 84% of trees are smaller).
-  - `dv`: coefficient of variation of the diameters, expressed as a percentage, representing the relative dispersion of the stand.
+A `DataFrame` with a single row for the sample, or one row per species, sorted by the importance value index (IVI) descending. The columns follow the standard symbology of forest mensuration: lowercase for the sample, uppercase for the values per unit area.
 
-# Examples
-```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> dmetrics(diameters)
-1×8 DataFrame
- Row │ dl          dm          dg          dw          dz          dd        du          dv
-     │ Quantity…   Quantity…  Quantity…   Quantity…   Quantity…   Quantity…  Quantity…   Float64
-─────┼──────────────────────────────────────────────────────────────────────────────────────────
-   1 │ 12.7085 cm   17.25 cm  17.7799 cm    18.6 cm  17.2663 cm    NaN cm   21.7915 cm  26.3274
+**Sample and per unit area**
+* `n`: number of trees in the sample.
+* `g`: basal area of the sample, the sum of the basal areas of the trees.
+* `N`: **Absolute Density**, the estimated number of trees per unit area (ha or ac), ``N = n F``. For a species it is the population density of the species.
+* `G`: **Absolute Dominance**, the basal area per unit area (m²/ha or ft²/ac), ``G = g F``. It indicates the physical space occupied by the species.
+* `Dm`: arithmetic mean diameter, ``\\bar{D}``.
+* `Dg`: quadratic mean diameter, ``D_g``, the diameter of the tree with mean basal area, the one that links the number of trees to the basal area of the stand.
+* `CD`: coefficient of variation of the diameters, ``C_D = 100 s_D / \\bar{D}``, in percent. It measures the heterogeneity of the sizes: a low value is an even-sized stand, a high one a stand with many size classes. It is `NaN` for a single tree, which has no standard deviation.
 
-# the same call without units, diameters taken as cm and the area as ha
-julia> dmetrics([10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0], 0.05)
-```
+**Horizontal structure of the community** (only with `species` and `plots`)
+* `plots`: **Plots**, the number of unique plots where the species was recorded.
+* `AF`: **Absolute Frequency**, the percentage of the sampling units in which the species occurs, indicating the uniformity of its spatial distribution.
+* `RDe`: **Relative Density**, the proportion of the density `N` of the species relative to the total density of all species in the community.
+* `RDo`: **Relative Dominance**, the proportion of the basal area `G` of the species relative to the total stand basal area.
+* `RF`: **Relative Frequency**, the frequency of the species expressed as a percentage of the sum of the absolute frequencies of all species.
 
-"""
-function dmetrics(d::AbstractVector{<:Len}, area::Area=0.0u"ha")
-  d̅ = dm(d)
-  s = std(d, mean=d̅)
-  d₋, d₊ = d̅ - s, d̅ + s
-  return DataFrame(
-    dl=d₋,
-    dm=d̅,
-    dg=dg(d),
-    dw=dw(d),
-    dz=dz(d),
-    dd=dd(d, area),
-    du=d₊,
-    dv=s / d̅ * 100,
-  )
-end
-
-
-dmetrics(d::AbstractVector{<:Real}, area::Real=0.0) = dmetrics(d * DUNIT, area * AUNIT)
-
-"""
-    hm(h::AbstractVector{<:Len})
-
-Calculate the arithmetic mean height of a forest stand or sample.
-
-# Arguments
-- `h`: vector of tree heights with length units (e.g., m or ft).
-
-# Returns
-- `Quantity`: the arithmetic mean height in the same units as the input.
+**Integrated phytosociological indices** (only with `species` and `plots`)
+* `VC`: **Cover Value**, the sum of the Relative Density and the Relative Dominance (RDe + RDo). This index characterizes the ecological importance and space utilization of a species, emphasizing abundance and dominance over distribution.
+* `IVI`: **Importance Value Index**, the mean of the three relative parameters ((RDe + RDo + RF) / 3). It provides an overall "ecological score" for the species within the community.
 
 # Mathematical basis
-The simple average of all measured heights:
-```math
-\\bar{h} = \\frac{\\sum_{i=1}^{n} h_i}{n}
-
-```
-
-# Technical description
-
-The arithmetic mean height is a basic descriptive statistic of the stand's vertical structure. While useful for general characterization, it is highly sensitive to the presence of suppressed trees and thinning from below. In uneven-aged stands, it often underestimates the visual canopy height.
-
-# Examples
-
-```julia-repl
-julia> heights = [10.2, 11.5, 12.3, 14.1, 14.9, 16.5, 17.2, 18.0, 19.6, 21.2] * u"m";
-
-julia> hm(heights)
-15.55 m
-
-```
-
-"""
-hm(h::AbstractVector{<:Len}) = mean(h)
-
-hm(d::AbstractVector{<:Real}) = hm(d * HUNIT)
-
-"""
-    hd(d::AbstractVector{<:Len}, h::AbstractVector{<:Len}, area::Area)
-
-Calculate the dominant height (hd) of a forest stand based on Assmann's definition.
-
-# Arguments
-* `d`: vector of diameters at breast height with length units (e.g., cm or inch).
-* `h`: vector of tree heights with length units (e.g., m or ft).
-* `area`: total sampled area used to determine the number of dominant trees.
-
-# Returns
-* `Quantity`: the arithmetic mean height of the dominant trees in the same units as the input `h`. Returns `NaN` if the sample is insufficient.
-
-# Mathematical basis
-The number of dominant trees () is defined by the spatial density standard (100 per hectare or 40 per acre). The dominant height is the mean height of those  thickest trees:
+With the diameters ``D_i`` of the ``n`` trees, the arithmetic mean and the standard deviation (with ``n - 1``) are
 
 ```math
-h_{dom} = \\frac{\\sum_{i=1}^{k} h_{i}}{k}
-
+\\bar{D} = \\frac{\\sum_{i=1}^{n} D_i}{n} \\qquad
+s_D = \\sqrt{\\frac{\\sum_{i=1}^{n} (D_i - \\bar{D})^2}{n - 1}} \\qquad
+C_D = \\frac{s_D}{\\bar{D}} \\times 100
 ```
 
-where  corresponds to the heights of the trees with the largest diameters.
-
-# Technical description
-
-Dominant height is one of the most important variables in forest mensuration. Because it is practically unaffected by thinning interventions and stand density, it is universally used to evaluate site quality (Site Index) and to construct growth and yield models.
-
-# Examples
-
-```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> heights = [10.2, 11.5, 12.3, 14.1, 14.9, 16.5, 17.2, 18.0, 19.6, 21.2] * u"m";
-julia> plotArea = 500u"m^2";
-julia> hd(diameters, heights, plotArea)
-18.5 m
-```
-
-"""
-function hd(d::AbstractVector{<:Len}, h::AbstractVector{<:Len}, area::Area)
-  # validate vector lengths
-  length(d) == length(h) || throw(DimensionMismatch("height and diameter vectors must have same length"))
-  # get target count of dominant trees
-  ntree = dominantTreeCount(d, area)
-  # return nan (in the height unit) if sample is insufficient or invalid
-  isnan(ntree) && return _nanlike(h)
-  # get indices of the ntree thickest trees
-  idx = partialsortperm(d, 1:Int(ntree), rev=true)
-  return hm(h[idx])
-end
-
-hd(d::AbstractVector{<:Real}, h::AbstractVector{<:Real}, area::Real) = hd(d * DUNIT, h * HUNIT, area * AUNIT)
-
-"""
-    hg(d::AbstractVector{<:Len}, h::AbstractVector{<:Len})
-
-Calculate Lorey's mean height (hg), which is the mean height weighted by the basal area of each tree.
-
-# Arguments
-* `d`: vector of diameters at breast height with length units (e.g., cm or inch).
-* `h`: vector of tree heights with length units (e.g., m or ft).
-
-# Returns
-* `Quantity`: Lorey's mean height in the same units as the input `h`.
-
-# Mathematical basis
-Calculated by dividing the sum of the products of individual heights and basal areas by the total stand basal area:
+The quadratic mean diameter is the square root of the mean of the squared diameters, which is the arithmetic mean squared plus the variance of the population, so it comes from ``\\bar{D}`` and ``s_D`` without another pass through the data, and the basal area of the sample follows from it (``g_i = \\pi D_i^2 / 4``):
 
 ```math
-h_g = \\frac{\\sum_{i=1}^{n} g_i h_i}{\\sum_{i=1}^{n} g_i}
+D_g = \\sqrt{\\frac{\\sum_{i=1}^{n} D_i^2}{n}} = \\sqrt{\\bar{D}^2 + \\frac{n - 1}{n} s_D^2} \\qquad
+g = \\sum_{i=1}^{n} g_i = n \\, \\frac{\\pi D_g^2}{4}
+```
 
+The expansion factor ``F`` (``F = 1\\,\\text{ha} / A``, with ``A`` the sampled area) scales the sample to a hectare:
+
+```math
+N = n F \\qquad G = g F
+```
+
+For the species ``i`` of a community of ``S`` species, with ``p_i`` the plots where it occurs out of ``P`` plots, the horizontal structure and the indices are:
+
+```math
+AF_i = \\frac{p_i}{P} \\times 100 \\qquad
+RDe_i = \\frac{N_i}{\\sum_{j=1}^{S} N_j} \\times 100 \\qquad
+RDo_i = \\frac{G_i}{\\sum_{j=1}^{S} G_j} \\times 100 \\qquad
+RF_i = \\frac{AF_i}{\\sum_{j=1}^{S} AF_j} \\times 100
+```
+
+```math
+VC_i = RDe_i + RDo_i \\qquad IVI_i = \\frac{RDe_i + RDo_i + RF_i}{3}
 ```
 
 # Technical description
-Proposed by Lorey (1878), this is the standard mean height used in volumetric calculations and forest production models. By weighting heights according to basal area, it reduces the influence of smaller, suppressed trees and emphasizes the larger trees that constitute the bulk of the stand's volume. It is invariably larger than the arithmetic mean height.
+This is the primary entry point to characterize a stand or a community from the diameters. The expansion factor automatically detects whether the inputs are in the metric or imperial system. The sums of `N` and `G` over the species are the `N` and `G` of the stand. The metrics that are not here, the Weise, central basal area, dominant and Hohenadl diameters, are available one by one for those who need them: [`weisediameter`](@ref), [`centralbasalareadiameter`](@ref), [`dominantdiameter`](@ref) and [`hohenaldiameters`](@ref), besides [`arithmeticmeandiameter`](@ref) and [`quadraticmeandiameter`](@ref). The dominant diameter is a property of the stand (the thickest trees per hectare), not of a species, so it is not calculated by species.
 
 # Examples
 
 ```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> heights = [10.2, 11.5, 12.3, 14.1, 14.9, 16.5, 17.2, 18.0, 19.6, 21.2] * u"m";
-julia> hg(diameters, heights)
-17.148042704626334 m
+julia> d = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
+julia> standmetrics(d, 500u"m^2")
+1×7 DataFrame
+ Row │ n      g             N            G                  Dm         Dg          CD
+     │ Int64  Quantity…     Quantity…    Quantity…          Quantity…  Quantity…   Float64
+─────┼─────────────────────────────────────────────────────────────────────────────────────
+   1 │    10  0.248284 m^2  200.0 ha^-1  4.96568 m^2 ha^-1   17.25 cm  17.7799 cm  26.3274
+
+julia> species = ["Oak", "Oak", "Pine", "Pine", "Pine", "Maple", "Oak", "Pine"];
+julia> plots = [1, 1, 1, 2, 2, 2, 3, 3];
+julia> d = [30.0, 22.5, 40.0, 35.2, 28.7, 15.4, 26.1, 33.9]u"cm";
+julia> standmetrics(species, plots, d, 0.3u"ha")
+3×15 DataFrame
+ Row │ species  n      g              N              G                    Dm         Dg          CD        plots  RDe      RDo       AF        RF       VC        IVI
+     │ String   Int64  Quantity…      Quantity…      Quantity…            Quantity…  Quantity…   Float64   Int64  Float64  Float64   Float64   Float64  Float64   Float64
+─────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1 │ Pine         4   0.377929 m^2  13.3333 ha^-1    1.25976 m^2 ha^-1   34.45 cm  34.6841 cm   13.4835      3     50.0  67.4266   100.0     50.0     117.427   55.8089
+   2 │ Oak          3   0.163949 m^2     10.0 ha^-1   0.546496 m^2 ha^-1    26.2 cm  26.3784 cm   14.3168      2     37.5  29.2502    66.6667  33.3333   66.7502  33.3612
+   3 │ Maple        1  0.0186265 m^2  3.33333 ha^-1  0.0620883 m^2 ha^-1    15.4 cm     15.4 cm  NaN           1     12.5   3.32317   33.3333  16.6667   15.8232  10.8299
 ```
 
+# References
+Finger, C. A. G. (2006). *Biometria Florestal*. Santa Maria: UFSM, Section 12.1.
+Curtis, J. T. & McIntosh, R. P. (1951). An upland forest continuum in the prairie-forest border region of Wisconsin. *Ecology*, 32(3), 476-496.
 """
-function hg(d::AbstractVector{<:Len}, h::AbstractVector{<:Len})
-  length(d) == length(h) || throw(DimensionMismatch("height and diameter vectors must have same length"))
-  g = basalarea.(d)
-  return sum(h .* g) / sum(g)
-end
-
-hg(d::AbstractVector{<:Real}, h::AbstractVector{<:Real}) = hg(d * DUNIT, h * HUNIT)
-
-
-"""
-    hmetrics(d::AbstractVector{<:Len}, h::AbstractVector{<:Len}, area::Area=0.0u"ha")
-    hmetrics(d::AbstractVector{<:Real}, h::AbstractVector{<:Real}, area::Real=0.0)
-
-Calculate a comprehensive set of vertical structure metrics for a forest stand.
-Aggregates the lower boundary, arithmetic mean, dominant height, Lorey's mean height, upper boundary, and relative dispersion.
-
-# Arguments
-* `d`: vector of diameters at breast height with length units (e.g., cm or inch). Plain numbers are taken to be centimeters.
-* `h`: vector of tree heights with length units (e.g., m or ft). Plain numbers are taken to be meters.
-- `area`: sampled area used for dominant diameter calculation. A plain number is taken to be hectares. Defaults to 0.0ha (which yields NaN for dominant height).
-
-# Units
-
-Every height column is returned in the unit of `h`. `hv` is a dimensionless percentage.
-
-# Returns
-* `DataFrame`: a single row dataframe containing:
-* `hl`: lower height boundary (mean minus standard deviation).
-* `hm`: arithmetic mean height.
-* `hd`: dominant height (Assmann's definition, based on thickest trees).
-* `hg`: Lorey's mean height (weighted by basal area).
-* `hu`: upper height boundary (mean plus standard deviation).
-* `hv`: coefficient of variation of the heights, expressed as a percentage.
-
-```julia-repl
-
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> heights = [10.2, 11.5, 12.3, 14.1, 14.9, 16.5, 17.2, 18.0, 19.6, 21.2] * u"m";
-julia> plotArea = 500u"m^2";
-julia> hmetrics(diameters, heights, plotArea)
-1×6 DataFrame
- Row │ hl         hm         hd         hg         hu         hv      
-     │ Quantity…  Quantity…  Quantity…  Quantity…  Quantity…  Float64
-─────┼────────────────────────────────────────────────────────────────
-   1 │ 11.9589 m    15.55 m     18.5 m   17.148 m  19.1411 m   23.094
-```
-"""
-function hmetrics(d::AbstractVector{<:Len}, h::AbstractVector{<:Len}, area::Area=0.0u"ha")
-  # validate vector lengths
-  length(d) == length(h) || throw(DimensionMismatch("height and diameter vectors must have same length"))
-  # mean height h̅
-  h̅ = hm(h)
-  s = std(h, mean=h̅)
-  h₋, h₊ = h̅ - s, h̅ + s
-  return DataFrame(
-    hl=h₋, hm=h̅,
-    hd=hd(d, h, area),
-    hg=hg(d, h),
-    hu=h₊,
-    hv=s / h̅ * 100,
-  )
-end
-
-hmetrics(d::AbstractVector{<:Real}, h::AbstractVector{<:Real}, area::Real=0.0) = hmetrics(d * DUNIT, h * HUNIT, area * AUNIT)
-
-"""
-    standmetrics(d::AbstractVector{<:Len}, h::AbstractVector{<:Len}, area::Area)
-    standmetrics(d::AbstractVector{<:Real}, h::AbstractVector{<:Real}, area::Real)
-
-Calculate the complete summary of inventory metrics for a forest plot, scaling values to per-hectare or per-acre equivalents.
-
-# Arguments
-* `d`: vector of diameters at breast height with length units (e.g., cm or inch). Plain numbers are taken to be centimeters.
-* `h`: vector of tree heights with length units (e.g., m or ft). Plain numbers are taken to be meters.
-- `area`: sampled area of the plot. A plain number is taken to be hectares.
-
-# Units
-
-Diameters are reported in the unit of `d` and heights in the unit of `h`. The basal area
-`g` is in square meters (`m^2`), or square feet (`ft^2`) when the diameters are imperial;
-`EF`, `N` and `G` are expressed per hectare (`ha^-1`) in the metric system and per acre
-(`ac^-1`) in the imperial one.
-
-# Returns
-* `DataFrame`: a single row dataframe aggregating absolute plot totals, scaled per-area values, and all diameter and height metrics. Contains:
-* `n`: total number of sampled trees in the plot.
-* `g`: total basal area of the sampled plot.
-* `EF`: expansion factor used to scale plot data to a per-hectare or per-acre basis.
-* `N`: extrapolated number of trees per hectare/acre.
-* `G`: extrapolated total basal area per hectare/acre.
-* Includes all metrics from `dmetrics` (dm, dg, dd, etc.) and `hmetrics` (hm, hg, hd, etc.).
-
-
-# Technical description
-
-This is the primary entry point for characterizing an individual plot in a forest inventory. It unifies horizontal structure (diameters), vertical structure (heights), and spatial density (extrapolated totals). The Expansion Factor (EF) automatically detects whether the inputs are in the metric or imperial system and scales accordingly.
-
-# Examples
-
-```julia-repl
-julia> diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm";
-julia> heights = [10.2, 11.5, 12.3, 14.1, 14.9, 16.5, 17.2, 18.0, 19.6, 21.2] * u"m";
-julia> plotArea = 500u"m^2";
-julia> standmetrics(diameters, heights, plotArea)
-1×19 DataFrame
- Row │ n      g             EF          N            G                  dl          dm         dg          dw         dz          dd         du          dv       hl         hm         hd         hg         hu         hv      
-     │ Int64  Quantity…     Quantity…   Quantity…    Quantity…          Quantity…   Quantity…  Quantity…   Quantity…  Quantity…   Quantity…  Quantity…   Float64  Quantity…  Quantity…  Quantity…  Quantity…  Quantity…  Float64
-─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-   1 │    10  0.248284 m^2  20.0 ha^-1  200.0 ha^-1  4.96568 m^2 ha^-1  12.7085 cm   17.25 cm  17.7799 cm    18.6 cm  17.2663 cm    21.0 cm  21.7915 cm  26.3274  11.9589 m    15.55 m     18.5 m   17.148 m  19.1411 m   23.094
-```
-"""
-function standmetrics(d::AbstractVector{<:Len}, h::AbstractVector{<:Len}, area::Area)
-  length(d) == length(h) || throw(DimensionMismatch("height and diameter vectors must have same length"))
-
+function standmetrics(d::AbstractVector{<:Length}, area::Area)
   n = length(d)
-  g = basalarea.(d)
-  EF = expansionfactor(d, area)
-  G = sum(g)
-
-  d̅ = dm(d)
-  sd = std(d, mean=d̅)
-  d₋, d₊ = d̅ - sd, d̅ + sd
-
-  h̅ = hm(h)
-  sh = std(h, mean=h̅)
-  h₋, h₊ = h̅ - sh, h̅ + sh
-
-  ntree = dominantTreeCount(d, area)
-  if isnan(ntree)
-    ddom = _nanlike(d)
-    hdom = _nanlike(h)
-  else
-    idx = partialsortperm(d, 1:Int(ntree), rev=true)
-    ddom = dm(d[idx])
-    hdom = hm(h[idx])
-  end
-
-  return DataFrame(
-    n=n,
-    g=G,
-    EF=EF,
-    N=n * EF,
-    G=G * EF,
-    dl=d₋,
-    dm=d̅,
-    dg=dg(d),
-    dw=dw(d),
-    dz=dz(d),
-    dd=ddom,
-    du=d₊,
-    dv=sd / d̅ * 100,
-    hl=h₋,
-    hm=h̅,
-    hd=hdom,
-    hg=sum(h .* g) / G,
-    hu=h₊,
-    hv=sh / h̅ * 100
-  )
+  Dm, sD = mean_and_std(d)
+  # Dg² = Dm² + variance of the population
+  Dg = n > 1 ? sqrt(Dm^2 + sD^2 * (n - 1) / n) : Dm
+  g = n * basalarea(Dg)
+  EF = expansionfactor(area)
+  return DataFrame(n=n, g=g, N=n * EF, G=g * EF, Dm=Dm, Dg=Dg, CD=sD / Dm * 100)
 end
 
-standmetrics(d::AbstractVector{<:Real}, h::AbstractVector{<:Real}, area::Real=0.0) = standmetrics(d * DUNIT, h * HUNIT, area * AUNIT)
+function standmetrics(species::AbstractVector, plots::AbstractVector, d::AbstractVector{<:Length}, area::Area)
+  if length(species) != length(plots) || length(plots) != length(d)
+    throw(DimensionMismatch("species, plots, and d vectors must have the same length"))
+  end
+  nplots = unique(plots) |> length
+  ft = combine(groupby(DataFrame(species=species, plots=plots, d=d), :species)) do s
+    hcat(standmetrics(s.d, area), DataFrame(plots=unique(s.plots) |> length))
+  end
+  # RDe: Relative Density (%)
+  ft.RDe = (ft.N ./ sum(ft.N)) .* 100
+  # RDo: Relative Dominance (%)
+  ft.RDo = (ft.G ./ sum(ft.G)) .* 100
+  # AF: Absolute Frequency (%)
+  ft.AF = (ft.plots ./ nplots) .* 100
+  # RF: Relative Frequency (%)
+  ft.RF = (ft.AF ./ sum(ft.AF)) .* 100
+  # VC: Cover Value (%)
+  ft.VC = ft.RDe .+ ft.RDo
+  # IVI: Importance Value Index (%)
+  ft.IVI = (ft.VC .+ ft.RF) ./ 3
+  # Sort by IVI descending
+  sort!(ft, :IVI, rev=true)
+  return ft
+end

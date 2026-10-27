@@ -2,86 +2,216 @@
 
 ## Computing the Cubage
 
-The `cubage` function calculates the volume of a tree by sections from a profile of diameters and heights. It partitions the volume into stump, commercial, residual, and top sections, and can handle both single and multiple trees. The volume of each section is calculated using Smalian's formula. For calculating the volume of individual logs with other methods, see `smalian`, `newton`, and `huber`.
+Two functions calculate the rigorous volume of felled trees from the diameters measured along the bole. The first argument of both is the **method**, the formula that matches where the diameters were measured on the bole: `Smalian` (at the ends of the sections), `Huber` (at their middles) or `Newton` (at both). The measurements are the heights annotated in the field (the absolute method), or only the length of the log, when the sections are equal (the relative method, see below).
 
-### Cubing a Simple Tree
+- `cubage` gives the commercial volume, the one that was actually **measured**: the sections between the measurements, since the diameters are measured up to the commercial height. It only needs the heights and the diameters.
+- `treevolume` extends it to the whole tree: the stump and the tip, which are not measured but modeled (a cylinder and a cone), and the form factor. It needs the diameter at breast height `D` and the total height `H` of each tree.
 
-When cubing a single tree, you need to provide vectors of diameters (d) and heights (h) measured at different points along the tree stem. Diameters should be in centimeters, and heights should be in meters. The diameter at breast height (DBH) and total tree height (Ht) are essential inputs.
+Variable names follow the symbology standardized by the Brazilian Association of Forest Mensuration (Silva et al., 2022; see the Bibliography): `D` is the diameter at breast height, `H` the total height, `d` and `h` a diameter and a height at any position of the stem, `E` the bark thickness, `v` a volume, `f` the form factor, and the suffix `s` means without bark.
+
+Nothing is interpolated: the volumes use only the measured diameters, and `D` and `H` are always the annotated values, never read from the profile (the height of the diameter at breast height is not the same in every country). All lengths must carry units (e.g., `cm` for diameters and `m` for heights; any length unit works).
+
+### The Measured Volume
+
+The numerical examples are the tree of Machado & Figueiredo Filho (2003), Chapter 5, Tables 5.1 to 5.3 (diameter at breast height 22.3 cm, total height 15.9 m).
 
 ```@example ex_cub_01
 using ForestMensuration
 using Unitful
 
-# Diameters at different heights (cm)
-d = [9.0, 7.0, 5.8, 5.1, 3.8, 1.9, 0.0]u"cm"
+# Heights (m) and diameters with bark (cm) of the measurements, from the stump up (Table 5.1)
+h = [0.1, 1.3, 3.3, 5.3, 7.3, 9.3, 11.3, 13.3, 15.3]u"m"
+d = [27.7, 22.3, 20.3, 18.8, 17.5, 14.3, 9.5, 6.0, 1.2]u"cm"
 
-# Corresponding heights (m)
-h =  [0.3, 1.3, 3.3, 5.3, 7.3, 9.3, 10.8]u"m"
-
-# Calculate cubage
-cubage(h, d)
+# Smalian's method: every measurement is the end of a section
+cubage(Smalian, h, d)
 ```
 
 \
 
-- vt: Total volume
-- v0: Volume of the stump
-- vc: Commercial bole volume
-- vr: Residual volume above commercial limit
-- vn: Volume of the top (cone)
-- d: Diameter at breast height
-- h: Total tree height
-- hc: Commercial height
-- aff: Artificial form factor
-- nff: Natural form factor
-- qf: Form quotient
+With Huber's and Newton's methods the measurements alternate between the limit of a section and its middle, from a limit to a limit. Huber uses only the diameters at the middles, and Newton uses all of them.
+
+```@example ex_cub_01
+# Limits at 0.1, 1.3, 3.3, ..., 15.3 m; middles at 0.7, 2.3, 4.3, ..., 14.3 m (Table 5.3)
+hn = [0.1, 0.7, 1.3, 2.3, 3.3, 4.3, 5.3, 6.3, 7.3, 8.3, 9.3, 10.3, 11.3, 12.3, 13.3, 14.3, 15.3]u"m"
+dn = [27.7, 24.8, 22.3, 20.7, 20.3, 19.4, 18.8, 18.1, 17.5, 17.0, 14.3, 11.5, 9.5, 7.6, 6.0, 4.5, 1.2]u"cm"
+
+cubage(Huber, hn, dn)
+```
+
+\
+
+```@example ex_cub_01
+cubage(Newton, hn, dn)
+```
 
 \
 
 #### Including Bark Thickness
 
-With the bark thickness value, it is possible to calculate the bark factor and total and commercial volumes without bark. Note: the provided thickness should be the 'single thickness' in centimeters. The function will convert it into 'double thickness'.
+With the bark thickness it is possible to calculate the volume without bark, the volume of the bark and the bark factor. Note: the thickness `E` is the bark thickness (one side of the stem), as a length quantity; the diameter without bark is `ds = d - 2E`, and the function takes care of the factor 2.
 
 ```@example ex_cub_01
-# Bark thickness at corresponding heights (cm)
-bark = [0.9, 0.5, 0.3, 0.2, 0.2, 0.1, 0.0]u"cm"
+# Bark thickness at the corresponding heights (cm), (d - ds) / 2 with the diameters without bark of Table 5.1
+E = [1.8, 1.7, 1.55, 1.2, 1.0, 0.7, 0.6, 0.4, 0.1]u"cm"
 
-# Define a commercial diameter limit
-diameter_limit = 4.0u"cm"
-
-# Calculate cubage including bark thickness and diameter limit
-cubage(h, d, bark; dlimit = diameter_limit)
+cubage(Smalian, h, d, E)
 ```
 
 \
 
-Additional columns include:
+- `vm`, `vms`: Commercial volume with bark and without bark (suffix `s` = without bark)
+- `vb`: Volume of the bark (`vm - vms`)
+- `kb`: Bark factor
+- `pb`: Percentage of bark, the share of the volume with bark that is bark (`barkpercentage(vm, vms)`)
 
-- k: Bark factor
-- : vtwb, v0wb, vcwb, vrwb, vnwb: Corresponding volumes without bark
+#### Equal Sections: the Relative Method
+
+In the relative method the log is divided into a number of equal sections, and what matters is the number of positions, not their percentages: only the length `l` of the log and the diameters, in order, are needed. There is no total height, no stump, no tip and so no form factor. It is called with the length of the log instead of the heights, `cubage(method, l, d)`.
+
+The relative method is the way of **measuring**, the methodology of Hohenadl: equal sections, with the same relative positions in every log. The **calculation** is the formula of the method that matches where the diameters were taken:
+
+| Where the diameters were measured | Method | Formula |
+|:--|:--|:--|
+| At the ends of the sections (0, 10, ..., 100 % of the length) | `Smalian` | mean of the areas of the two ends |
+| At the middles of the sections (10, 30, 50, 70, 90 %, for 5 sections) | `Huber` | area at the middle; with equal sections it is the volume of Hohenadl, `l / n` times the sum of the areas |
+| At the ends and at the middles (limit, middle, limit, ...) | `Newton` | weighted mean of the areas |
+
+There is no `Hohenadl` method for that reason: it is how the diameters were measured, not another formula.
+
+Sections v2 to v8 of Table 5.1 have the same length (2 m), so the book calculates them with the generic formula (0.2598 m³ in the book): `Smalian`, with the diameters at the ends.
+
+```@example ex_cub_01
+# 8 diameters, the ends of 7 sections, in a log of 14 m (from 1.3 m to 15.3 m)
+cubage(Smalian, 14.0u"m", d[2:end])
+```
+
+\
+
+The tree of Table 5.4 is measured by the methodology of Hohenadl: the 15.8 m of bole above the stump of 0.1 m (15.9 - 0.1) are divided into 10 sections, with the diameter at the middle of each one. The calculation is Huber's:
+
+```@example ex_cub_01
+dh = [24.0, 20.5, 19.7, 18.6, 17.7, 15.8, 11.5, 8.0, 5.9, 1.5]u"cm"
+
+cubage(Huber, 15.8u"m", dh)
+```
+
+\
+
+#### Logs from a Spreadsheet
+
+The field sheets of this method have a row per log: its length and then its diameters at the same relative positions (0, 10, ..., 100 % of the length, for example). Read the sheet with the units in the headers, `name (unit)`, and `parseunits` attaches them to the columns. Then the call is the lengths and the columns of the diameters. The result has a row per log, in the same order, and the identifier columns stay in the table, beside the result. The rows below are logs of the sheet of the Flona do Jamari.
+
+```@example ex_cub_01
+using DataFrames
+
+sheet = DataFrame(
+    "log" => ["1A", "1B", "1C"],
+    "l (m)" => [7.10, 7.67, 7.62],
+    "d0 (cm)" => [81.5, 67.2, 61.1], "d1 (cm)" => [74.5, 63.7, 60.1], "d2 (cm)" => [72.9, 63.5, 60.2],
+    "d3 (cm)" => [69.5, 62.7, 59.8], "d4 (cm)" => [67.2, 62.0, 58.6], "d5 (cm)" => [66.2, 61.3, 58.6],
+    "d6 (cm)" => [65.8, 61.4, 58.3], "d7 (cm)" => [64.9, 61.7, 59.4], "d8 (cm)" => [64.9, 61.7, 58.7],
+    "d9 (cm)" => [64.8, 59.5, 57.7], "d10 (cm)" => [65.3, 59.4, 57.7],
+)
+sheet = parseunits(sheet)
+
+# the length and the diameters, the columns from the third on
+hcat(select(sheet, :log), cubage(Smalian, sheet.l, sheet[:, 3:end]))
+```
+
+
+The diameters measured at the middles of the sections, as in Hohenadl's methodology, are calculated by Huber's formula, with the same layout. A single log is the same call with a length and a vector of diameters, `cubage(Smalian, sheet.l[1], Vector(sheet[1, 3:end]))`.
+
+```@example ex_cub_01
+# The diameters of the sheet at 10, 30, 50, 70 and 90 %: the middles of 5 equal sections
+hcat(select(sheet, :log), cubage(Huber, sheet.l, sheet[:, [4, 6, 8, 10, 12]]))
+```
+
+
+### The Volume of the Whole Tree
+
+`treevolume` partitions the volume into the stump, the commercial part (the measured sections, as in `cubage`) and the tip. When the last measurement is below the total height `H`, the tip is cubed as a cone above it. With Smalian's method, a last diameter of zero is the apex of the tree.
+
+```@example ex_cub_01
+# Diameter at breast height and total height, as annotated
+treevolume(Smalian, h, d; D = 22.3u"cm", H = 15.9u"m")
+```
+
+\
+
+- `v`: Total volume of the tree
+- `vt`: Volume of the stump, a cylinder with the first measured diameter
+- `vm`: Commercial volume, the measured sections (the same as `cubage`)
+- `vp`: Volume of the tip, the cone above the last measurement
+- `hm`: Commercial height, the height of the last measurement
+- `D`, `H`: Diameter at breast height and total height, as annotated
+- `f`: Artificial form factor
+
+#### A Tree Cubed by the Three Methods
+
+The tree of Table 2 of Floriano (2025) has a stump of 0.35 m, sections of different lengths and a tip, and the book gives its total volume by each method, stump and tip included. The measurements of Smalian's method are the limits of the sections; Huber's and Newton's also need the diameter at the middle of each section, interleaved with the limits (limit, middle, limit, ...).
+
+```@example ex_cub_01
+# limits of the sections (m) and diameters with bark (cm); the diameter at breast height is the one of the third limit
+hf = [0.35, 0.95, 1.30, 2.50, 3.70, 4.90, 6.10, 7.30, 8.50, 9.70, 10.90, 12.10]u"m"
+df = [19.6, 15.9, 14.3, 12.8, 12.6, 11.7, 10.5, 9.2, 7.2, 5.0, 2.9, 1.1]u"cm"
+# diameters at the middle of each section
+dmf = [16.5, 14.8, 13.4, 12.9, 11.9, 11.2, 9.6, 8.2, 5.9, 3.8, 1.8]u"cm"
+
+hmf = (hf[1:end-1] .+ hf[2:end]) ./ 2
+hn_f = [hf[1]; vec([hmf'; hf[2:end]'])]
+dn_f = [df[1]; vec([dmf'; df[2:end]'])]
+
+# the book: 0.11127 (Smalian), 0.10717 (Huber) and 0.10854 m³ (Newton)
+treevolume(Smalian, hf, df; D = 14.3u"cm", H = 12.53u"m")
+```
+
+
+```@example ex_cub_01
+treevolume(Huber, hn_f, dn_f; D = 14.3u"cm", H = 12.53u"m")
+```
+
+
+```@example ex_cub_01
+treevolume(Newton, hn_f, dn_f; D = 14.3u"cm", H = 12.53u"m")
+```
+
+
+The stump is a cylinder and is part of the total volume `v` of this book. Other books do not count the stump: Machado & Figueiredo Filho (2003) add up the sections and the tip only. The columns are separate for that: the volume without the stump is `v - vt`, or `vm + vp`.
+
+#### Including Bark Thickness
+
+```@example ex_cub_01
+treevolume(Smalian, h, d, E; D = 22.3u"cm", H = 15.9u"m")
+```
+
+\
+
+The columns `v`, `vt`, `vm` and `vp` refer to the volumes with bark, and `vs`, `vts`, `vms` and `vps` to the volumes without bark. `vb` is the volume of the bark and `kb` the bark factor.
 
 ### Cubing Multiple Trees
 
-To calculate cubage for multiple trees, organize your data in a DataFrame with columns for tree identifiers, heights, diameters, and optionally bark thickness.
+To calculate cubage for many trees at once, organize your data in a DataFrame with columns for tree identifiers, heights, diameters, the diameter at breast height and the total height of the tree (repeated on every row of the tree), and optionally bark thickness. Pass the identifiers with the `id` keyword. `cubage` only needs the heights and diameters.
+
+Do not broadcast `treevolume` over the columns (`treevolume.(Smalian, df.h, df.d; ...)`): each call needs the whole profile of a tree, not one measurement. The `id` keyword does that work, with `D` and `H` as columns of the data (a value per row; the value of the first row of each tree is used). The result has a row per tree and carries `D` and `H` as columns, so it can go straight into a regression such as `v ~ D + H`.
 
 ```@example ex_cub_02
 using ForestMensuration
 using DataFrames
 using Unitful
 
-# Sample data for multiple trees
+# Two trees: the diameters with bark and the diameters without bark of Table 5.1, as if they were two trees
 data = DataFrame(
-    tree = [148, 148, 148, 148, 148, 148, 148, 222, 222, 222, 222, 222, 222, 222, 222, 222, 222, 222],
-    h = [0.3, 1.3, 3.3, 5.3, 7.3, 9.3, 10.8, 0.3, 1.3, 3.3, 5.3, 7.3, 9.3, 11.3, 13.3, 15.3, 17.3, 19.5],
-    d = [9.0, 7.0, 5.8, 5.1, 3.8, 1.9, 0.0, 16.0, 12.0, 11.6, 10.1, 9.4, 8.2, 7.0, 6.0, 4.0, 2.0, 0.0],
-    bark = [0.9, 0.5, 0.3, 0.2, 0.2, 0.1, 0.0, 1.2, 0.5, 0.3, 0.3, 0.2, 0.2, 0.3, 0.0, 0.0, 0.0, 0.0]
+    tree = repeat([1, 2], inner = 9),
+    h = repeat([0.1, 1.3, 3.3, 5.3, 7.3, 9.3, 11.3, 13.3, 15.3], 2),
+    d = [27.7, 22.3, 20.3, 18.8, 17.5, 14.3, 9.5, 6.0, 1.2, 24.1, 18.9, 17.2, 16.4, 15.5, 12.9, 8.3, 5.2, 1.0],
+    bark = repeat([1.8, 1.7, 1.55, 1.2, 1.0, 0.7, 0.6, 0.4, 0.1], 2),
+    D = repeat([22.3, 18.9], inner = 9),
+    H = fill(15.9, 18)
 )
 
-# Define a commercial diameter limit
-diameter_limit = 2.5u"cm"
-
-# Calculate cubage for each tree
-cubage(data.tree, data.h .* u"m", data.d .* u"cm"; dlimit = diameter_limit)
+# The whole tree, for each tree
+treevolume(Smalian, data.h .* u"m", data.d .* u"cm"; D = data.D .* u"cm", H = data.H .* u"m", id = data.tree)
 ```
 
 \
@@ -92,258 +222,7 @@ Additionally, bark thickness values can be provided to calculate bark factors an
 
 ```@example ex_cub_02
 # Calculate cubage including bark thickness
-cubage(data.tree, data.h .* u"m", data.d .* u"cm", data.bark .* u"cm"; dlimit = diameter_limit)
-```
-
-## Fitting Allometric Regressions
-
-The [`regression`](@ref) function — from
-[ForestModeling.jl](https://github.com/JuliaForests/ForestModeling.jl), re-exported here —
-automatically generates and evaluates multiple regression models based on the provided
-data. It explores a bounded, citable catalog of transformations of the dependent and
-independent variables, creating a comprehensive set of candidate models for analysis.
-
-### Adjusting a Hypsometric Relationship
-
-In forestry, hypsometric relationships model the relationship between tree height (h) and diameter at breast height (dbh). The regression function generates numerous models to find the best fit.
-
-```@example regression_data
-using ForestMensuration
-using DataFrames
-
-# Sample dataset with tree heights and diameters
-data = DataFrame(
-    plot = ["A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A",
-            "B", "B", "B", "B", "B", "B", "B", "B", "B", "B", "B", "B", "B",
-            "C", "C", "C", "C", "C", "C", "C", "C", "C", "C", "C", "C",
-            "D", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D"],
-    h = [20.9, 19.6, 13.2, 23.3, 19.2, 16.2, 8.3, 19.7, 11.0, 24.0, 25.8, 28.2, 24.2, 26.2, 28.3,
-         14.4, 14.9, 15.6, 8.2, 22.1, 16.7, 22.3, 19.5, 15.9, 16.7, 24.5, 21.7, 23.8,
-         20.8, 17.7, 19.3, 16.7, 22.2, 18.6, 6.9, 22.3, 8.7, 22.1, 21.0, 23.5,
-         19.5, 19.7, 18.2, 13.9, 12.3, 14.5, 12.3, 18.6, 18.0, 17.4, 24.3, 22.8, 23.2, 23.5, 25.2],
-    dbh = [31.5, 30.0, 26.5, 31.0, 29.0, 26.5, 14.5, 28.8, 19.0, 31.5, 32.5, 33.8, 32.5, 33.3, 36.0,
-           24.0, 28.0, 23.0, 15.5, 31.0, 27.0, 29.0, 28.0, 26.0, 29.0, 30.0, 29.0, 30.5,
-           25.0, 26.8, 27.5, 26.0, 26.0, 25.8, 10.8, 27.0, 16.5, 26.5, 27.0, 26.3,
-           26.0, 25.5, 25.0, 23.5, 22.0, 23.0, 23.0, 26.0, 25.5, 27.5, 26.5, 26.5, 27.8, 26.0, 27.0]
-)
-
-# Perform regression analysis between height and diameter (data comes first, then y, then x...)
-models = regression(data, :h, :dbh)
-```
-
-This generates every combination (up to `nMax=2` terms, the default) of the transform
-catalog applied to h and dbh.
-
-```@example regression_data
-#number of fitted regressions
-length(models)
-```
-
-#### Regression Selection Criteria
-
-After fitting the models, you can evaluate and rank them based on specific criteria using the [`criteriaTable`](@ref) function.
-
-```@example regression_data
-# Evaluate models
-best_models = criteriaTable(models)
-```
-
-```@example regression_data
-# Evaluate models based on Adjusted R², Coefficient of Variation, choosing the 5 best
-best_5_models = criteriaTable(models, :adjr2, :cv; best=5)
-```
-
-\
-
-#### Selecting the Best Model
-
-To select the best model based on the combined ranking you can simply use the [`criteriaSelection`](@ref) function:
-
-```@example regression_data
-# Select the top model
-top_model = criteriaSelection(models, :adjr2, :cv)
-```
-
-#### Predict
-
-The [`predict`](@ref) function allows you to generate predicted values from a regression model on the original scale of the dependent variable. This is particularly useful when the model involves transformations of the dependent variable (e.g., logarithmic transformations). The function automatically applies the appropriate inverse transformations and bias corrections.
-
-```@example regression_data
-# Returns the predicted values from the model on the original scale
-h_pred = predict(top_model)
-```
-
-### Adjusting a Qualitative (Dummy) Hypsometric Relationship
-
-If your data includes categorical variables (e.g., different plots or species), you can include them in the regression analysis simply by passing them alongside the continuous predictors — the engine detects categorical columns from the data automatically.
-
-```@example regression_data
-# Perform regression including 'plot' as a categorical variable
-qualitative_models = regression(data, :h, :dbh, :plot)
-
-# Select the best model
-top_qual_model = criteriaSelection(qualitative_models, :adjr2, :cv)
-```
-
-### Robust Regression (Alternative Estimation Criteria)
-
-The [`fitRobust`](@ref) function fits a single formula by minimizing an alternative loss
-with `Optim.jl` instead of closed-form least squares — useful when OLS assumptions are
-visibly violated (heavy outliers, or strongly relative/percentage-scale error). It accepts
-`SSE` (reproduces OLS), `MAE`, `HUBER`, `MSLE`, or `MAPE`.
-
-```@example regression_data
-# Huber loss down-weights outliers relative to ordinary least squares
-robust_model = fitRobust(@formula(log(h) ~ log(dbh)), data, HUBER)
-```
-
-```@example regression_data
-predict(robust_model)
-```
-
-`fitRobust` is opt-in — [`regression`](@ref) never calls it, since numerical optimization
-is far more expensive to run combinatorially than the closed-form path.
-
-### Regression with Units of Measurement
-
-Every regression function accepts `Unitful` quantity columns directly, exactly like the
-rest of ForestMensuration.jl — units are stripped before fitting and reattached to
-`predict`/`fitted`/`residuals`, since the transform catalog (`log`, `1/x`, `√x`, ...)
-cannot run on a dimensioned quantity.
-
-```@example regression_units
-using ForestMensuration, DataFrames, Unitful
-
-data_u = DataFrame(
-    dbh = [31.5, 30.0, 26.5, 31.0, 29.0, 26.5, 14.5, 28.8, 19.0, 31.5]u"cm",
-    h   = [20.9, 19.6, 13.2, 23.3, 19.2, 16.2, 8.3, 19.7, 11.0, 24.0]u"m",
-)
-
-models_u = regression(data_u, :h, :dbh; nMax=2)
-best_u = criteriaSelection(models_u, :adjr2, :cv)
-```
-
-```@example regression_units
-# predictions come back as Unitful quantities, on the same scale h was fit in
-predict(best_u)
-```
-
-```@example regression_units
-# a model fit on cm/m scores a table given in a compatible unit automatically
-predict(best_u, DataFrame(dbh=[300.0]u"mm"))
-```
-
-Summary statistics and tables (`rmse`, `mae`, `criteriaTable`, `metrics`, `siteTable`) stay
-plain numbers regardless — a coefficient built from an arbitrarily transformed predictor
-has no single clean physical unit.
-
-## Grouped/Stratified Regression
-
-For stratified data (e.g. several species that plausibly need different equations),
-ForestModeling.jl — re-exported here — provides a grouped/stratified variant of the same
-bounded transform search: the [`regressionGrouped`](@ref) function fits three strategies
-so you can tell whether stratifying is actually worth it — one pooled equation
-(`general`), one pooled equation with the group as a categorical covariate (`qualy`), and
-one independently selected equation per group (`grouped`).
-
-```@example regression_grouped
-using ForestMensuration, DataFrames
-
-# 3 species with distinct slope/intercept, so stratifying is expected to help
-d = repeat(10.0:3.0:37.0, 3)
-species = repeat(["Oak", "Pine", "Cedar"], inner=10)
-slope = Dict("Oak" => 0.85, "Pine" => 0.65, "Cedar" => 0.75)
-intercept = Dict("Oak" => 0.2, "Pine" => 0.5, "Cedar" => 0.35)
-h = [intercept[species[i]] + slope[species[i]] * log(d[i]) + 0.03 * sin(i) for i in 1:30]
-gdata = DataFrame(d=d, h=h, species=species)
-
-grouped_model = regressionGrouped(gdata, :h, :d, :species)
-criteriaTable(grouped_model, :adjr2, :cv)
-```
-
-```@example regression_grouped
-# per-group breakdown instead of the pooled general/qualy/grouped comparison
-criteriaTable(collect(values(grouped_model.grouped)), :adjr2)
-```
-
-### Range-Safe Prediction
-
-Calling [`predict`](@ref) directly on a small group's own equation risks wild
-extrapolation the moment a new row's predictor falls outside that group's own fitted
-range. [`predictBounded`](@ref) checks the range per row instead: out of the **global**
-range → the pooled `general` model; in the global range but out of that row's **own
-group's** range (or no model for that group at all) → `qualy`; only otherwise does the
-group's own model get used — so a small subgroup can't extrapolate into nonsensical
-predictions.
-
-```@example regression_grouped
-new_trees = DataFrame(d=[15.0, 60.0, 15.0], species=["Cedar", "Cedar", "Birch"])
-predictBounded(grouped_model, new_trees)
-```
-
-## Site Classification
-
-Site classification lets you evaluate and classify forest sites based on regression
-models relating tree height and age. These functions are particularly useful for
-assessing site productivity and quality by comparing observed data with expected values
-derived from a well-calibrated model.
-
-### Calculating Site Classification
-
-The [`siteClassification`](@ref) function calculates the expected dominant height at a given index age for each observation based on a fitted regression model. This is a key step in classifying the productivity of a forest site. As with every function in this package, heights are given as `Unitful` quantities (`u"m"` below) so the result carries the same unit automatically — plain numbers work too and are assumed to already be in meters, but the unitful version is the recommended way to call it.
-
-```@example site_classification
-using ForestMensuration, DataFrames
-
-# Create a DataFrame containing tree plot data -- height in meters
-data = DataFrame(
-    plot = repeat(1:6, inner=5),
-    age  = repeat([36, 48, 60, 72, 84], outer=6),
-    h    = [13.6, 17.8, 21.5, 21.5, 21.8,
-            14.3, 17.8, 21.0, 21.0, 21.4,
-            14.0, 17.5, 21.2, 21.2, 21.4,
-            13.4, 18.0, 20.8, 20.8, 23.2,
-            13.2, 17.4, 20.3, 20.3, 22.0,
-            13.2, 17.8, 21.3, 21.3, 22.5]u"m"
-)
-
-# Fit a regression model to relate height (h) to age, and pick the best one
-reg = criteriaSelection(regression(data, :h, :age), :adjr2, :cv)
-
-# Define the target index age (for example, 60 months)
-index_age = 60
-
-# Calculate the site classification values (site indices) for each observation -- a Vector of Unitful heights
-site_indices = siteClassification(reg, data, index_age)
-
-println("Site Classification Values:")
-println(site_indices)
-```
-
-### Calculating Dominant Height Classification
-
-The [`hdomClassification`](@ref) function uses the site classification values to predict the dominant height for each observation at the specified index age. This reverses the site classification process, allowing you to forecast tree heights based on site productivity.
-
-```@example site_classification
-# Now, compute the dominant heights for each observation using the site indices
-dominant_heights = hdomClassification(reg, data, index_age, site_indices)
-
-println("Dominant Height Values:")
-println(dominant_heights)
-```
-
-### Generating a Site Table
-
-The [`siteTable`](@ref) function creates a table of predicted dominant heights at various
-ages for different site index classes. You can specify a height increment (`hi`) to
-define the granularity of the site classes; it is chosen automatically via Sturges' rule
-when omitted. Unlike `siteClassification`/`hdomClassification` above, this table's values
-stay plain `Float64` in the fitting unit (meters here) rather than `Unitful` quantities —
-the same convention `criteriaTable`/`metrics` use in ForestModeling.jl for summary tables.
-
-```@example site_classification
-# Generate the site table -- values are plain numbers (meters), by design
-site_table = siteTable(reg, index_age)
+treevolume(Smalian, data.h .* u"m", data.d .* u"cm", data.bark .* u"cm"; D = data.D .* u"cm", H = data.H .* u"m", id = data.tree)
 ```
 
 ## Frequency and Statistical Functions
@@ -352,9 +231,14 @@ site_table = siteTable(reg, index_age)
 
 The [`frequencytable`](@ref) function creates frequency distributions for a vector of values, which is useful for analyzing the distribution of diameters or heights in your data.
 
-```@example regression_data
+```@example frequency
+using ForestMensuration
+
+D = [31.5, 30.0, 26.5, 31.0, 29.0, 26.5, 14.5, 28.8, 19.0, 31.5, 32.5, 33.8, 32.5, 33.3, 36.0]u"cm"
+H = [20.9, 19.6, 13.2, 23.3, 19.2, 16.2, 8.3, 19.7, 11.0, 24.0, 25.8, 28.2, 24.2, 26.2, 28.3]u"m"
+
 # Frequency table for diameters using Sturges' formula for class intervals
-frequencytable(data.dbh)
+frequencytable(D)
 ```
 
 \
@@ -367,330 +251,267 @@ frequencytable(data.dbh)
 - fri: Relative frequency (%)
 - Fri: Cumulative relative frequency (%)
 
+A class is the interval ``[LI, LS)``, closed on the left: a value that falls on a limit belongs to the class that starts there (12 cm is in the class 12-14, not in 10-12). The table goes from the class of the smallest value to the class of the largest one, and the classes in between that hold no observation are listed with frequency zero.
+
 \
 
 #### Specifying Class Width
 
 You can specify the class width (hi) to customize the intervals.
 
-```@example regression_data
+```@example frequency
 # Frequency table for heights with class width of 4 meters
-frequencytable(data.h, 4)
+frequencytable(H, 4u"m")
 ```
 
-## Calculating Dendrometric Averages
+### Diametric Tables
 
-To evaluate the horizontal and vertical structure of a forest stand, ForestMensuration.jl provides comprehensive metric summary functions. We can analyze diameters, heights, and complete plot-level inventories in a single step.
+The [`diametrictable`](@ref) function is the frequency table of the diameters with the basal area of each class and the expansion to one hectare (one acre, if imperial). It needs the sampled area of the plot.
+
+```@example frequency
+diametrictable(D, 4u"cm", plotarea=500u"m^2")
+```
+
+
+In addition to the columns of the frequency table:
+
+- g: Basal area of the tree of the class center
+- ng: Basal area of the class in the plot (`fi` trees of area `g`), and Ng its cumulative sum
+- Ni, NFi: Number of trees of the class per hectare, and its cumulative sum
+- Gi, GFi: Basal area of the class per hectare, and its cumulative sum
+
+## Stand Structure
+
+[`standmetrics`](@ref) characterizes a stand from the diameters at breast height of its sampled trees: how many there are, how much basal area they have, their mean diameters and how heterogeneous they are, scaled to a hectare (or an acre, for imperial units) from the sampled area. It is the only summary function: the same call, with the species and the plots of the trees, gives the horizontal structure and the phytosociological indices of the community.
 
 First, let's define our sample plot data using Unitful quantities:
 
 ```@example metrics
 using ForestMensuration
 
-diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm"
-heights = [10.2, 11.5, 12.3, 14.1, 14.9, 16.5, 17.2, 18.0, 19.6, 21.2] * u"m"
+D = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0] * u"cm"
 plotArea = 500u"m^2"
 nothing # hide
 
 ```
 
-### Horizontal Structure (Diameters)
-
-The [`dmetrics`](@ref) function calculates a comprehensive set of dendrometric diameter averages, returning a single-row DataFrame.
+### The Stand
 
 ```@example metrics
-# Calculate diameter metrics
-dmetrics(diameters, plotArea)
+standmetrics(D, plotArea)
 
 ```
 
-The resulting columns represent:
+The columns follow the standard symbology of forest mensuration, lowercase for the sample and uppercase for the values per unit area:
 
-- **dl**: Lower Hohenadl diameter (mean minus standard deviation).
-- **dm**: Arithmetic mean diameter.
-- **dg**: Quadratic mean diameter (diameter of the tree with mean basal area).
-- **dw**: Weise's diameter (60th percentile).
-- **dz**: Central basal area diameter.
-- **dd**: Dominant diameter (mean of the thickest trees).
-- **du**: Upper Hohenadl diameter (mean plus standard deviation).
-- **dv**: Coefficient of variation of the diameters (%).
+- **n**: Number of sampled trees.
+- **g**: Basal area of the sample, the sum of the basal areas of the trees.
+- **N**: Number of trees per hectare/acre, ``N = n F``, with ``F`` the expansion factor of the sampled area.
+- **G**: Basal area per hectare/acre, ``G = g F``.
+- **Dm**: Arithmetic mean diameter ``\bar{D}``.
+- **Dg**: Quadratic mean diameter ``D_g``, the diameter of the tree with mean basal area, which links the number of trees to the basal area (``g = n \pi D_g^2 / 4``).
+- **CD**: Coefficient of variation of the diameters (%), the heterogeneity of the sizes: low for an even-sized stand, high for a stand with many size classes.
 
-### Vertical Structure (Heights)
+``D_g`` and ``g`` come from ``\bar{D}`` and the standard deviation, in a single pass through the data: ``D_g^2 = \bar{D}^2 + \frac{n - 1}{n} s_D^2``.
 
-Similarly, the [`hmetrics`](@ref) function calculates the vertical structure metrics of the stand. It requires both diameters and heights to calculate weighted averages (like Lorey's mean height) and Assmann's dominant height.
+### The Species of a Community
+
+With the species and the plot of every tree, the same function returns one row per species, sorted by the Importance Value Index. The area is the total sampled area, all the plots together:
 
 ```@example metrics
-# Calculate height metrics
-hmetrics(diameters, heights, plotArea)
+species = ["Oak", "Oak", "Pine", "Pine", "Pine", "Maple", "Oak", "Pine"]
+plots = [1, 1, 1, 2, 2, 2, 3, 3]
+d = [30.0, 22.5, 40.0, 35.2, 28.7, 15.4, 26.1, 33.9] * u"cm"
+
+standmetrics(species, plots, d, 0.3u"ha")
 
 ```
 
-The resulting columns represent:
+Besides the columns above, calculated for each species (``N`` is the Absolute Density and ``G`` the Absolute Dominance), there are:
 
-- **hl**: Lower height boundary (mean minus standard deviation).
-- **hm**: Arithmetic mean height.
-- **hd**: Dominant height (based on the 100 thickest trees per hectare).
-- **hg**: Lorey's mean height (weighted by basal area).
-- **hu**: Upper height boundary (mean plus standard deviation).
-- **hv**: Coefficient of variation of the heights (%).
+- **plots**: Number of plots where the species occurs.
+- **RDe**: Relative Density (%), the density of the species over the total density.
+- **RDo**: Relative Dominance (%), the basal area of the species over the total basal area.
+- **AF**: Absolute Frequency (%), the plots where the species occurs over all the plots.
+- **RF**: Relative Frequency (%), the frequency of the species over the sum of the frequencies.
+- **VC**: Cover Value, ``RDe + RDo``.
+- **IVI**: Importance Value Index, ``(RDe + RDo + RF) / 3``.
 
-### Comprehensive Stand Summary
-
-For a complete characterization of an individual plot, use the [`standmetrics`](@ref) function. It unifies horizontal structure, vertical structure, and spatial density into a single output, automatically scaling plot totals to per-hectare or per-acre equivalents using an Expansion Factor (EF).
-
-```@example metrics
-# Calculate full stand metrics and per-area extrapolations
-standmetrics(diameters, heights, plotArea)
-
-```
-
-In addition to all the structural variables from `dmetrics` and `hmetrics`, the summary adds:
-
-- **n**: Total number of sampled trees in the plot.
-- **g**: Total basal area of the sampled plot.
-- **EF**: Expansion factor used to scale plot data to a per-hectare (or per-acre) basis.
-- **N**: Extrapolated number of trees per hectare/acre.
-- **G**: Extrapolated total basal area per hectare/acre.
+The sums of `N` and `G` over the species are the `N` and `G` of the stand. A species with a single tree has no standard deviation, so its `CD` is `NaN`.
 
 ## Forest Inventory Sampling
 
-ForestMensuration.jl re-exports all 11 classic forest inventory sampling designs from
+ForestMensuration.jl re-exports the 14 forest inventory sampling designs of
 [ForestInventory.jl](https://github.com/JuliaForests/ForestInventory.jl), each its own
 function — plain vectors throughout, no `DataFrame`/column-name indirection. Every design
-accepts plain numbers for `plot_area`/`total_area` (assumed to be `ha`), but never assumes
+takes `plotarea`/`totalarea` as `Unitful` areas, but never assumes
 a unit for the sampled quantity itself (usually named `value`): it might be volume, basal
-area, a tree count, or anything else, so a `Unitful` quantity is preserved as given and a
+area, a biomass, a tree count, or anything else, so a `Unitful` quantity is preserved as given and a
 plain number stays unitless all the way through, unlike every other function in this
-package. Designs that produce a single table return a plain `DataFrame`; designs that
+package (a count of trees per plot, with no unit, gives a mean per hectare in `ha^-1`). Designs that produce a single table return a plain `DataFrame`; designs that
 produce several related tables (one per stratum/cluster, or one per inventory occasion)
 return a [`SamplingReport`](@ref), whose tables are reachable through accessor functions
-(`resultTable(report)`, `clusterTable(report)`, ...) or directly as properties
-(`report.resultTable`).
+(`resulttable(report)`, `clustertable(report)`, ...) or directly as properties
+(`report.resulttable`). The columns use the symbols of Péllico Netto & Brena (1997) in ASCII (`xm`, `cv`,
+`sxm`, `Ea`, `Er`, `X`, `nreq`, ...), and every design reproduces the worked example of its chapter of
+the book, which are the examples below. The complete tutorial, with every design, is in the documentation of
+ForestInventory.jl.
 
 ### Simple Random Sampling
 
-[`simpleCasualSampling`](@ref) is the reference design every other method in this section
+[`simplecasualsampling`](@ref) is the reference design every other method in this section
 is compared against: each plot has an equal chance of being selected, with no further
-structure.
+structure. The example is that of chapter 5 of the book: 450 plots of 0.1 ha (45 ha) of *Pinus* sp.,
+sampled with 70 plots, in m³ per plot (mean 21.797 m³, `cv` 39.58 %, total 9 808.71 m³):
 
 ```@example inv_simple
 using ForestMensuration
 
-v = [381.7, 458.9, 468.2, 531.7, 474.1, 401.9, 469.1, 437.4, 435.3, 403.2, 397.1]u"m^3"
+v = [
+    18.5, 22.8, 15.8, 9.8, 23.5, 20.7, 28.3, 6.9, 28.7, 26.4, 7.6, 10.3, 21.1, 26.3, 39.9, 12.7,
+    11.5, 11.0, 18.9, 31.4, 9.6, 9.8, 7.1, 25.9, 25.7, 24.2, 19.0, 25.9, 37.7, 23.3, 24.6,
+    32.3, 23.4, 17.1, 8.9, 32.7, 8.1, 29.2, 24.7, 25.6, 13.2, 25.7, 27.0, 20.4, 13.6, 32.4,
+    31.3, 34.6, 9.5, 18.7, 28.9, 21.6, 8.3, 23.2, 26.6, 25.6, 8.0, 22.1, 21.9, 23.3, 9.9,
+    30.7, 29.2, 28.0, 13.7, 27.6, 37.9, 27.3, 28.0, 30.7
+]u"m^3"
 
-simpleCasualSampling(v, 0.05, 10; e=10, α=0.95)
+simplecasualsampling(v, 0.1u"ha", 45u"ha"; e=10, α=0.95)
 ```
 
 ### Stratified Random Sampling
 
-[`stratifiedSampling`](@ref) divides the population into non-overlapping strata before
+[`stratifiedsampling`](@ref) divides the population into non-overlapping strata before
 sampling within each — usually a variance reduction over simple random sampling of the
 same total size. It returns a [`SamplingReport`](@ref) with an ANOVA table (is there
 really a difference between strata?), an auxiliary table (per-stratum descriptive
-statistics and allocation weights), and the final result table.
+statistics and allocation weights), and the final result table. The example is that of chapter 6 of the book:
+the same population in 3 strata of 144, 164 and 142 plots, sampled with 22 plots (stratified mean 21.465 m³, total
+9 659 m³, ``F = 24.42``):
 
 ```@example inv_stratified
 using ForestMensuration
 
-stratum = [1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3]
-value = [18.2, 21.4, 19.8, 20.1, 32.5, 35.1, 30.8, 12.4, 11.9, 13.6, 12.8, 13.1]u"m^3"
-strata_area = Dict(1 => 12.0, 2 => 8.0, 3 => 20.0)   # hectares, one entry per stratum label
+stratum = vcat(fill(1, 7), fill(2, 8), fill(3, 7))
+value = [
+    15.8, 7.6, 8.8, 12.5, 11.1, 16.2, 12.2, 20.4, 30.5, 26.8, 27.2, 28.4, 19.7, 20.4, 23.1, 21.3,
+    24.3, 29.2, 21.8, 33.1, 35.8, 26.7
+]u"m^3"
+strataarea = Dict(1 => 14.4u"ha", 2 => 16.4u"ha", 3 => 14.2u"ha")   # one entry per stratum label
 
-report = stratifiedSampling(stratum, value, 0.1, strata_area)
-resultTable(report)
+report = stratifiedsampling(stratum, value, 0.1u"ha", strataarea)
+resulttable(report)
 ```
 
 ```@example inv_stratified
-auxiliaryTable(report)
+auxiliarytable(report)
 ```
 
 ```@example inv_stratified
 anova(report)
 ```
 
-With a single stratum, [`stratifiedSampling`](@ref) reduces exactly to
-[`simpleCasualSampling`](@ref) — useful as a sanity check when strata are added
-incrementally to a growing dataset. Since `strata_area` is a `Dict` keyed by the stratum
-labels, `stratum`/`value` don't need to be pre-sorted by stratum — they can be listed in
-whatever order the plots were actually collected in.
+With a single stratum, [`stratifiedsampling`](@ref) reduces exactly to
+[`simplecasualsampling`](@ref). Since `strataarea` is a `Dict` keyed by the stratum
+labels, `stratum`/`value` don't need to be pre-sorted by stratum.
 
 ### Systematic Sampling
 
-[`systematicSampling`](@ref) estimates the variance of the mean from the method of
-successive differences between consecutive plots, since plots laid out at a fixed
-interval tend to be more alike than a true random sample.
+[`systematicsampling`](@ref) estimates the variance of the mean from the successive differences between
+the plots of each line. The example is that of chapter 7 of the book: 75 plots in 15 lines of 5 plots, in
+the same stand (mean 22.11 m³, total 9 950 m³):
 
 ```@example inv_systematic
 using ForestMensuration
 
-v = [381.7, 458.9, 468.2, 531.7, 474.1, 401.9, 469.1, 437.4, 435.3, 403.2, 397.1]u"m^3"
+rows = [
+    8.0 9.4 7.3 10.1 8.7;
+    8.6 12.7 9.8 11.6 8.8;
+    13.1 7.6 9.5 8.5 10.4;
+    16.6 19.0 18.6 10.8 22.9;
+    21.6 15.1 15.8 18.0 16.2;
+    23.6 23.7 23.3 23.0 24.0;
+    19.7 18.4 22.8 27.1 19.5;
+    30.6 29.4 27.8 28.7 30.5;
+    20.4 24.6 19.2 28.2 19.9;
+    28.0 38.6 28.3 34.9 22.9;
+    30.1 27.6 23.1 28.4 21.4;
+    22.6 24.7 26.7 31.7 28.7;
+    26.7 24.8 26.9 31.8 21.8;
+    31.8 28.7 33.9 28.3 30.7;
+    25.5 33.1 35.1 30.1 28.3
+]
+value = vec(permutedims(rows)) * u"m^3"    # the plots of each line, in order
+line = repeat(1:15, inner=5)
 
-systematicSampling(v, 0.05, 10)
-```
-
-An optional `line` vector groups plots into several independent transects, so the
-difference between the last plot of one line and the first plot of the next — which
-aren't actually adjacent on the ground — is excluded from the variance estimate:
-
-```@example inv_systematic
-line = [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2]
-systematicSampling(v, 0.05, 10; line=line)
-```
-
-### Systematic Sampling with Multiple Random Starts
-
-[`multistartSystematicSampling`](@ref) lays out several independent systematic lines,
-each starting at its own random point, turning the design into a genuine probability
-sample: statistically identical to [`clusterSampling`](@ref)'s between/within
-decomposition, with each line playing the role of one cluster.
-
-```@example inv_multistart
-using ForestMensuration
-
-start = repeat(1:4, inner=5)
-value = [18.2, 19.1, 17.8, 18.9, 19.4, 22.4, 23.1, 21.9, 22.8, 23.4,
-         15.1, 16.0, 14.8, 15.6, 15.9, 20.5, 21.2, 19.8, 20.6, 21.0]u"m^3"
-
-report = multistartSystematicSampling(start, value, 0.02, 15)
-resultTable(report)
+systematicsampling(value, 0.1u"ha", 45u"ha"; line=line)
 ```
 
 ### One-Stage Cluster Sampling
 
-[`clusterSampling`](@ref) samples clusters of `M` neighboring plots ("conglomerates")
-instead of individual plots — cheaper to lay out in the field, at the cost of
-within-cluster homogeneity typically inflating the variance of the mean.
+[`clustersampling`](@ref) treats a group of `M` neighboring plots as the sampling unit. The example is that of
+chapter 9 of the book: 25 clusters of 4 plots of 0.25 ha in a stand of 4 000 ha (mean 64.548 m³, ``r = 0.0966``,
+total 1 032 768 m³, 17 clusters required):
 
 ```@example inv_cluster
 using ForestMensuration
 
-cluster = repeat(1:6, inner=4)
-value = [18.2, 19.1, 17.8, 18.9, 22.4, 23.1, 21.9, 22.8, 15.1, 16.0, 14.8, 15.6,
-         27.3, 28.1, 26.9, 27.8, 19.8, 20.5, 19.1, 20.0, 24.5, 25.2, 23.9, 24.8]u"m^3"
+rows = [
+    84.7 78.2 63.0 88.5;
+    70.1 65.4 59.6 58.1;
+    75.6 77.7 66.1 43.5;
+    81.3 38.7 62.8 31.1;
+    99.5 47.0 82.1 77.4;
+    97.3 66.1 57.4 113.9;
+    70.2 43.5 48.3 69.3;
+    81.7 68.8 22.6 78.2;
+    60.9 71.4 75.2 81.1;
+    67.3 90.5 72.6 67.1;
+    75.4 88.5 104.6 105.5;
+    71.0 57.0 79.3 71.8;
+    61.8 100.9 69.4 61.0;
+    116.9 91.0 36.9 57.3;
+    56.0 22.9 94.8 130.2;
+    68.2 32.5 68.2 58.6;
+    55.4 61.3 76.3 40.0;
+    55.0 63.0 56.8 36.8;
+    78.8 59.6 68.1 46.8;
+    33.6 44.4 34.1 79.6;
+    48.8 26.6 67.5 51.0;
+    82.4 61.8 23.4 60.2;
+    69.8 49.5 53.9 0.0;
+    58.4 61.5 45.5 50.2;
+    27.4 63.6 69.4 60.8
+]
+value = vec(permutedims(rows)) * u"m^3"    # the plots of each cluster, in order
+cluster = repeat(1:25, inner=4)
 
-report = clusterSampling(cluster, value, 0.02, 15)
-resultTable(report)
-```
-
-```@example inv_cluster
-clusterTable(report)
-```
-
-### Horizontal Point Sampling (Bitterlich)
-
-[`horizontalPointSampling`](@ref) estimates the value and basal area per hectare from
-angle-count ("Bitterlich") data: at each point, every tree that is "in" for the chosen
-basal area factor (`baf`) represents exactly `baf` m²/ha of basal area, regardless of its
-own size — no fixed plot radius is needed at all. Point 6 below was visited but had no
-"in" trees; it is not a row of `point`/`diameter`/`value`, but is still counted through
-`npoints=6` so the zero observation is not silently dropped from the mean.
-
-```@example inv_hps
-using ForestMensuration
-
-point    = [1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 5, 5, 5]
-diameter = [25.0, 30.0, 20.0, 28.0, 22.0, 35.0, 30.0, 25.0, 20.0, 22.0, 30.0, 28.0, 26.0]u"cm"
-value    = [0.35, 0.55, 0.22, 0.48, 0.28, 0.85, 0.55, 0.35, 0.22, 0.28, 0.55, 0.48, 0.40]u"m^3"
-
-# baf=2 m²/ha, 6 points visited (5 counted trees + 1 empty), 0.1 ha per point, 10 ha stand
-report = horizontalPointSampling(point, diameter, value, 2.0, 6, 0.1, 10)
-resultTable(report)
-```
-
-```@example inv_hps
-pointTable(report)
-```
-
-### Two-Stage Sampling
-
-[`twoStageSampling`](@ref) draws `n` primary units (e.g. stands) from a population of `N`,
-then sub-samples `m` secondary units (plots) from within each drawn primary out of `M`
-possible — unlike cluster sampling, not every secondary unit inside a drawn primary needs
-to be measured.
-
-```@example inv_twostage
-using ForestMensuration
-
-primary = repeat(1:5, inner=3)
-value = [18.2, 19.1, 17.8, 22.4, 23.1, 21.9, 15.1, 16.0, 14.8, 27.3, 28.1, 26.9, 19.8, 20.5, 19.1]u"m^3"
-
-# N=40 possible primary units, M=6 possible secondary units per primary
-report = twoStageSampling(primary, value, 0.02, 40, 6)
-resultTable(report)
+report = clustersampling(cluster, value, 0.25u"ha", 4000u"ha")
+resulttable(report)
 ```
 
 ### Successive Occasions
 
-The remaining four designs estimate growth between two inventory occasions, differing in
-how much of the plot network is remeasured at the second occasion. All four return a
-[`SamplingReport`](@ref) with `occasion1`, `occasion2`, and `change` tables.
-
-#### Independent Samples
-
-[`independentOccasionsSampling`](@ref) samples each occasion completely independently —
-the simplest design, but the least efficient at detecting growth, since it exploits none
-of the natural plot-to-plot correlation between occasions.
-
-```@example inv_independent
-using ForestMensuration
-
-v1 = [18.2, 21.4, 19.8, 20.1, 22.5, 19.0]u"m^3"
-v2 = [24.1, 23.8, 22.9, 25.6, 24.0]u"m^3"
-
-report = independentOccasionsSampling(v1, v2, 0.05, 200, 200)
-change(report)
-```
-
-#### Complete Replacement
-
-[`completeReplacementSampling`](@ref) remeasures the exact same plots at both occasions,
-exploiting their positive correlation to tighten the growth estimate.
-
-```@example inv_complete
-using ForestMensuration
-
-v1 = [18.2, 21.4, 19.8, 20.1, 22.5, 19.0, 24.6, 17.3]u"m^3"
-v2 = [22.1, 25.8, 23.4, 21.0, 26.6, 20.9, 26.0, 22.5]u"m^3"
-
-report = completeReplacementSampling(v1, v2, 0.05, 200, 200)
-change(report)
-```
-
-#### Partial Replacement
-
-[`partialReplacementSampling`](@ref) is the middle ground: a matched subset of plots is
-remeasured, some temporary plots are dropped, and new temporary plots are added at the
-second occasion. `missing` marks a plot that wasn't measured on a given occasion.
-
-```@example inv_partial
-using ForestMensuration
-
-value1 = [18.2, 21.4, 19.8, 20.1, 22.5, 19.0, 23.1, missing, missing]u"m^3"
-value2 = [missing, missing, 23.4, 24.0, 26.6, 22.9, 27.5, 25.2, 21.8]u"m^3"
-
-report = partialReplacementSampling(value1, value2, 0.05, 200)
-occasion2(report)
-```
-
-```@example inv_partial
-change(report)
-```
-
-#### Double Sampling
-
-[`doubleSampling`](@ref) measures a large first-occasion sample but only remeasures a
-smaller "permanent" subset at the second occasion, estimating the rest via a regression of
-the permanent subset's second-occasion value on its first-occasion value — solved
-through the normal equations `(X'X)β = X'y`, the same transposed-design-matrix approach
-used for the ANOVA in [`stratifiedSampling`](@ref).
+The four designs for continuous forest inventory return a [`SamplingReport`](@ref) with the tables `occasion1`,
+`occasion2` and `change`. The example of [`doublesampling`](@ref) is that of chapter 11 of the book: a stand of 500 ha
+of *Pinus elliottii* (500 plots of 1 000 m²), with 56 plots in 1975, 30 temporary and 26 permanent, and the 26
+permanent plots remeasured in 1976 (the volumes of the book are per hectare, so they are given as the volumes of
+plots of 1 ha). The book gets a mean of 169.952 m³ with a standard error of 6.664 m³ and a change of 49.86 m³:
 
 ```@example inv_double
 using ForestMensuration
 
-value1 = [18.2, 21.4, 19.8, 20.1, 22.5, 19.0, 23.1, 17.6, 20.8, 21.9]u"m^3"
-value2 = [22.1, 25.8, 23.4, missing, 26.6, missing, 27.5, missing, missing, 26.0]u"m^3"
+xu = [132.3, 122.9, 133.3, 124.8, 127.5, 116.4, 120.0, 140.6, 116.8, 113.9, 138.7, 144.5, 104.0,
+    157.4, 116.2, 100.1, 164.4, 195.7, 129.8, 102.1, 140.7, 187.0, 64.6, 129.6, 147.3, 151.9,
+    110.7, 147.1, 101.8, 146.5]
+xm = [139.1, 190.3, 100.7, 102.7, 98.4, 68.2, 42.2, 91.6, 91.6, 77.4, 91.4, 91.6, 123.5, 108.7,
+    108.7, 93.6, 42.0, 53.8, 138.0, 173.1, 121.1, 81.8, 64.0, 145.9, 168.9, 186.8]
+ym = [177.6, 232.9, 165.5, 180.8, 164.3, 103.6, 68.0, 145.5, 137.6, 123.7, 146.6, 141.3, 174.4,
+    164.9, 164.9, 134.0, 57.4, 84.4, 202.0, 207.9, 171.8, 154.0, 101.2, 189.2, 226.9, 239.3]
 
-report = doubleSampling(value1, value2, 0.05, 200)
+value1 = vcat(xu, xm) * u"m^3"
+value2 = vcat(fill(missing, 30), ym) * u"m^3"    # missing: the temporary plots were not remeasured
+
+report = doublesampling(value1, value2, 1u"ha", 500)
 occasion2(report)
 ```
 
@@ -698,103 +519,20 @@ occasion2(report)
 change(report)
 ```
 
-## Stem Taper Equations
+### The Other Designs
 
-ForestMensuration.jl can fit a stem taper (profile) curve to measured `(height, diameter)`
-pairs along one or more trees' stems, then use it to evaluate the diameter at any height,
-invert it to find the height at any diameter, integrate a volume between two heights, and
-simulate cutting the stem into logs across any number of product classes. Fitting a
-[`TaperFit`](@ref) is done with `fit` from
-[ForestModeling.jl](https://github.com/JuliaForests/ForestModeling.jl) (re-exported here);
-everything downstream — [`taperdiameter`](@ref), [`taperheight`](@ref),
-[`taperedvolume`](@ref), [`logassortment`](@ref) — is native to this package.
+| Function | Design |
+|:---------|:-------|
+| [`multistartsystematicsampling`](@ref) | Systematic sampling with multiple random starts (chapter 10) |
+| [`twostagesampling`](@ref) | Two-stage sampling (chapter 8) |
+| [`independentoccasionssampling`](@ref) | Successive occasions, independent samples (chapter 11) |
+| [`completereplacementsampling`](@ref) | Successive occasions, complete replacement (chapter 11) |
+| [`partialreplacementsampling`](@ref) | Successive occasions, partial replacement, Ware & Cunia (chapter 11) |
+| [`horizontalpointsampling`](@ref) | Horizontal point sampling (Bitterlich) |
+| [`strandsampling`](@ref) | Horizontal line sampling (Strand) |
+| [`prodansampling`](@ref) | Prodan's k-tree distance sampling |
+| [`threepsampling`](@ref) | 3P sampling |
 
-### Fitting a Taper Model
-
-10 classic published taper forms are available as `TaperModel` subtypes — `Kozak1969`,
-`Schoepfer1966`, `Matte1949`, `Demaerschalk1972`, `Clutter1980`, `MaxBurkhart1976`,
-`Johnson1911`, `Kozak1988`, `Kozak2004`, `Bi2000`. `fit` takes paired stem-scaling data —
-each tree's `dbh`/total `height` repeated once per measured section, alongside the section
-heights `hi` and diameters `di`:
-
-```@example taper_fit
-using ForestMensuration
-
-dbh    = [20.0, 20.0, 20.0, 30.0, 30.0, 30.0, 25.0, 25.0, 25.0, 35.0, 35.0, 35.0]
-height = [18.0, 18.0, 18.0, 22.0, 22.0, 22.0, 20.0, 20.0, 20.0, 24.0, 24.0, 24.0]
-hi     = [0.3, 6.0, 14.0, 0.3, 8.0, 18.0, 0.3, 7.0, 16.0, 0.3, 9.0, 20.0]
-di     = [22.4, 15.8, 6.1, 33.6, 24.2, 8.7, 27.9, 18.6, 7.4, 38.9, 27.1, 9.9]
-
-ft = fit(Kozak1969(), dbh, height, hi, di)
-r2(ft), adjr2(ft), dispersion(ft)
-```
-
-Fitting several models on the same data and ranking them with
-[`criteriaTable`](@ref)/[`criteriaSelection`](@ref) — from `ForestModeling.jl`, works
-unchanged on a `Vector{TaperFit}` — picks the best-fitting form:
-
-```@example taper_fit
-fits = [fit(m, dbh, height, hi, di) for m in (Kozak1969(), Schoepfer1966(), Demaerschalk1972(), Bi2000())]
-criteriaTable(fits, :adjr2, :rmse)
-```
-
-### Diameter and Height Along the Stem
-
-[`taperdiameter`](@ref) evaluates the fitted curve; [`taperheight`](@ref) inverts it —
-useful for finding, say, the height at a minimum merchantable top diameter:
-
-```@example taper_fit
-taperdiameter(ft, 25.0u"cm", 20.0u"m", 7.0u"m")
-```
-
-```@example taper_fit
-taperheight(ft, 25.0u"cm", 20.0u"m", 15.0u"cm")
-```
-
-Plain numbers work the same way, assuming `cm` for diameters and `m` for heights:
-
-```@example taper_fit
-taperdiameter(ft, 25.0, 20.0, [2.0, 7.0, 12.0])
-```
-
-### Volume by Integration
-
-[`taperedvolume`](@ref) integrates the fitted cross-sectional-area profile between two
-heights — the curve-fitted counterpart of [`cubage`](@ref), which instead integrates a
-*measured* section profile. Omitting `hmin`/`hmax` integrates the whole stem:
-
-```@example taper_fit
-taperedvolume(ft, 25.0u"cm", 20.0u"m", 0.3u"m", 12.0u"m")
-```
-
-```@example taper_fit
-taperedvolume(ft, 25.0, 20.0)
-```
-
-### Log Assortment (Sortimentos)
-
-[`logassortment`](@ref) simulates cutting a tree's stem into logs across any number of
-product classes — a generalized, bug-fixed equivalent of the R package `timbeR`'s
-per-model bucking functions. `products` is a table in **cutting priority order** (most
-valuable first), one row per product, with its minimum small-end diameter (`sed`),
-usable log length range (`minlength`/`maxlength`), and the stem length lost to each cut
-(`kerf`):
-
-```@example taper_fit
-using DataFrames
-
-products = DataFrame(
-    name=["Sawlog", "Pulpwood"],
-    sed=[18.0, 8.0],
-    minlength=[2.5, 2.0],
-    maxlength=[4.0, 3.0],
-    kerf=[0.03, 0.03],
-)
-
-logassortment(ft, 30.0u"cm", 22.0u"m", products)
-```
-
-The greedy algorithm cuts the longest permitted log for the current product until the stem
-narrows below its `sed`, then moves to the next product for the remainder of the stem —
-`volume`/`logs` report each product's totals as tuples, in table order, alongside the
-overall `totalvolume`/`totallogs`.
+Each one follows the same pattern, with its complete formulas in its docstring; see the
+[ForestInventory.jl documentation](https://JuliaForests.github.io/ForestInventory.jl/dev/tutorial/) for a runnable
+example of every one.

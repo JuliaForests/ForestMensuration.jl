@@ -1,38 +1,29 @@
 """
 Description:
 
-ForestMensuration.jl is a Julia package that provides a comprehensive set of functions for performing dendrometric calculations. Designed with ease of use in mind, the package offers tools that simplify complex forestry calculations, making it straightforward to:
+ForestMensuration.jl is a Julia package that provides a comprehensive set of functions for performing dendrometric calculations, for both planted and native forests. Designed with ease of use in mind, the package offers tools that simplify complex forestry calculations, making it straightforward to:
 
-- **Calculate tree and stand volume (cubage)**: Support for various methods such as Huber, Smalian, and Newton allows precise calculation of tree and stand volumes.
-- **Compute dendrometric averages**: Calculate essential dendrometric metrics like mean diameter, quadratic mean diameter, and others to understand stand structure.
+- **Calculate the volume of felled trees (cubage)**: [`cubage`](@ref) gives the commercial volume, the one that was measured, and [`treevolume`](@ref) extends it to the whole tree, with the stump, the tip and the form factor, with and without bark. The method is the first argument ([`Smalian`](@ref), [`Huber`](@ref) or [`Newton`](@ref)), the measurements are absolute heights (many trees can be stacked), and the relative method of equal sections is `cubage(method, l, d)` with the length of the log, and nothing is interpolated: the diameter at breast height and the total height are always the annotated values.
+- **Characterize the stand**: [`standmetrics`](@ref) gives the number of trees, the basal area, the mean and quadratic mean diameters and their coefficient of variation per hectare, and, with the species and the plots of the trees, the horizontal structure and the phytosociological indices (density, dominance, frequency, cover value and Importance Value Index) of each species. The other averages (Weise, central basal area, dominant and Hohenadl diameters) are available one by one.
 - **Create frequency tables**: Generate frequency and diametric tables to analyze the distribution of dendrometric variables such as diameter and height.
-- **Estimate forest inventory sampling designs**: all 11 classic designs, each its own
-  function taking plain vectors — simple ([`simpleCasualSampling`](@ref)), stratified
-  ([`stratifiedSampling`](@ref)), systematic ([`systematicSampling`](@ref),
-  [`multistartSystematicSampling`](@ref)), cluster/two-stage ([`clusterSampling`](@ref),
-  [`twoStageSampling`](@ref)), horizontal point/Bitterlich angle-count sampling
-  ([`horizontalPointSampling`](@ref)), and the four sampling-on-successive-occasions
-  designs ([`independentOccasionsSampling`](@ref), [`completeReplacementSampling`](@ref),
-  [`partialReplacementSampling`](@ref), [`doubleSampling`](@ref)) — every one generic to
+- **Estimate forest inventory sampling designs**: all 14 designs, each its own
+  function taking plain vectors — simple ([`simplecasualsampling`](@ref)), stratified
+  ([`stratifiedsampling`](@ref)), systematic ([`systematicsampling`](@ref),
+  [`multistartsystematicsampling`](@ref)), cluster/two-stage ([`clustersampling`](@ref),
+  [`twostagesampling`](@ref)), horizontal point/Bitterlich angle-count sampling
+  ([`horizontalpointsampling`](@ref)), and the four sampling-on-successive-occasions
+  designs ([`independentoccasionssampling`](@ref), [`completereplacementsampling`](@ref),
+  [`partialreplacementsampling`](@ref), [`doublesampling`](@ref)), plus horizontal line
+  ([`strandsampling`](@ref)), Prodan's k-tree ([`prodansampling`](@ref)) and 3P
+  ([`threepsampling`](@ref)) sampling — every one generic to
   any number of strata/clusters/plots and returning a [`SamplingReport`](@ref) or plain
   `DataFrame`. Re-exported from
   [ForestInventory.jl](https://github.com/JuliaForests/ForestInventory.jl).
-- **Apply fitted stem taper models**: [`taperdiameter`](@ref)/[`taperheight`](@ref) evaluate
-  or invert a [`TaperFit`](@ref) (fit with `ForestModeling.fit` — see its module docstring
-  for the 10-model catalog), [`taperedvolume`](@ref) integrates volume from the fitted
-  curve, and [`logassortment`](@ref) simulates cutting a stem into logs across any number
-  of product classes.
-- **Classify site productivity**: [`siteClassification`](@ref)/[`hdomClassification`](@ref)/
-  [`siteTable`](@ref) — guide-curve (anamorphic, delta-method) site index classification
-  from any allometric model fitted with age as its sole continuous regressor.
-  `siteTable`'s automatic class breadth reuses the same Sturges'-rule-based "nice number"
-  rounding as [`frequencytable`](@ref)/[`diametrictable`](@ref).
-- **Fit and select allometric regression models**: Re-exported from
-  [ForestModeling.jl](https://github.com/JuliaForests/ForestModeling.jl) — search a bounded
-  catalog of hypsometric/volumetric transforms (`regression`), rank the results
-  (`criteriaTable`/`criteriaSelection`), and compare pooled/grouped/covariate-adjusted
-  variants (`regressionGrouped`), with range-safe prediction across them
-  (`predictBounded`).
+- **Describe native forest community structure**: [`communitymatrix`](@ref), [`diversity`](@ref),
+  [`floristicdistance`](@ref)/[`floristicsimilarity`](@ref), and
+  [`speciesaccumulation`](@ref) cover biodiversity indices, floristic similarity, and
+  species accumulation/rarefaction curves for native/mixed forest inventories, besides the
+  Importance Value Index of [`standmetrics`](@ref).
 
 The package facilitates the analysis of dendrometric and forest data, performs complex calculations with simple commands, and offers a user-friendly and intuitive interface.
 
@@ -44,73 +35,59 @@ converted automatically. Diameters may be given in `cm`, `mm`, `inch`, ... and h
 areas come back in `m^2` and volumes in `m^3`, or in `ft^2`/`ft^3` when the diameters are
 imperial.
 
-For convenience every function also accepts plain numbers, in which case the package
-assumes its default units:
+Lengths, areas and volumes must always carry units: a plain number says nothing about
+whether it was measured in `cm`, `m` or `inch`, so assuming a unit could fail silently.
+Write `30u"cm"` (or `[30.0, 25.0]u"cm"` for a vector). The one deliberate exception is
+`frequencytable`, which classifies any variable and therefore stays unitless when given
+unitless data — use `diametrictable` for diameter-specific tables.
 
-| Measurement                 | Assumed unit |
-|:----------------------------|:-------------|
-| diameter, bark thickness    | `cm`         |
-| height, log length          | `m`          |
-| volume                      | `m^3`        |
-| plot area                   | `ha`         |
-
-So `cubage([0.3, 1.3, 3.3], [9.0, 7.0, 5.8])` reads the heights as meters and the
-diameters as centimeters, and returns exactly the same table as the equivalent call with
-explicit units. The one deliberate exception is `frequencytable`, which classifies any
-variable and therefore stays unitless when given unitless data — use `diametrictable`
-for diameter-specific tables.
-
-Results always carry units; use `removeunits`/`restoreunits` (re-exported from
+Results always carry units; use `stripunits`/`parseunits` (re-exported from
 `ForestFoundations`) to move between unitful DataFrames and plain numeric ones for export.
 """
 module ForestMensuration
-using DataFrames, ForestFoundations, ForestInventory, ForestModeling, QuadGK, Reexport, Roots, StatsBase, Tables
-
-import StatsModels: modelcols, FunctionTerm
+using DataFrames, Distributions, ForestFoundations, ForestInventory, Random, Reexport, StatsBase
 
 @reexport using ForestFoundations
-@reexport using ForestModeling
 @reexport using ForestInventory
 
 include("distributiontables.jl")
-include("siteclassification.jl")
 include("dendrometrics.jl")
 include("cubage.jl")
-include("taper/common.jl")
-include("taper/taperdiameter.jl")
-include("taper/taperheight.jl")
-include("taper/taperedvolume.jl")
-include("taper/logassortment.jl")
+include("biodiversity.jl")
+include("accumulation.jl")
 
 export
   # Cubage
+  CubingMethod,
+  Smalian,
+  Huber,
+  Newton,
   artificialformfactor,
   barkfactor,
+  barkpercentage,
   conevolume,
   cubage,
+  treevolume,
   cylindervolume,
-  diameterinterpolation,
-  heightinterpolation,
-  naturalformfactor,
-  quotientform,
   smalian,
   newton,
   huber,
-  hohenadl,
-  # Frequency and Statistic functions
-  dmetrics,
-  hmetrics,
+  # Stand structure, and the single diameter averages for those who need them one by one
   standmetrics,
+  arithmeticmeandiameter,
+  quadraticmeandiameter,
+  weisediameter,
+  centralbasalareadiameter,
+  dominantdiameter,
+  hohenaldiameters,
+  # Frequency tables
   diametrictable,
   frequencytable,
-  # Stem taper application (fitting lives in ForestModeling.jl, re-exported above)
-  taperdiameter,
-  taperheight,
-  taperedvolume,
-  logassortment,
-  # Site classification
-  siteClassification,
-  hdomClassification,
-  siteTable
+  # Native forest biodiversity
+  communitymatrix,
+  diversity,
+  floristicdistance,
+  floristicsimilarity,
+  speciesaccumulation
 
 end

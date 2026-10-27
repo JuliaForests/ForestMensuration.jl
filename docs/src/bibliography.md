@@ -44,17 +44,23 @@ Ferrari, F., & Chechinel, C. (2008). Introdução a Algoritmos e Programação (
 
 Finger, C. A. G. (2006). Biometria Florestal. Santa Maria: CEPEF; FATEC; UFSM.
 
+Floriano, E. P. (2025). Dendrometria: medição de árvores e de seu crescimento (2ª ed.). Maceió: Ed. do Autor.
+
 Guimarães, I. A. (2008). Estatística – Notas de aula. Universidade Tecnológica Federal do Paraná, Curitiba.
 
 Husch, B., Beers, T. W., & Kershaw Jr, J. A. (2003). Forest Mensuration (4ª ed.). New York: Wiley.
 
 Johnson, F. A. (1911). Estimating the merchantable volume of pine on the basis of diameter and height. USDA Forest Service.
 
+Jorge, L. A. B., & Eufrade Junior, H. J. (2023). Dendrometria e inventário florestal com aplicações em R. Botucatu: Ed. dos Autores.
+
 Júnior, P. J. R. (2008). CE-223: Estatística Computacional, Laboratório de Estatística e Geoinformação, UFPR, Paraná. Disponível em: http://leg.ufpr.br/~paulojus/ce223/ce223/ce223se19.html.
 
 JuliaLang. (s.d.). Julia 1.11 Documentation. Disponível em: https://docs.julialang.org/en/v1/.
 
 JuliaPackages. (s.d.). Pacotes Julia. Disponível em: https://juliapackages.com/packages.
+
+Kershaw Jr., J. A., Ducey, M. J., Beers, T. W., & Husch, B. (2017). Forest Mensuration (5ª ed.). Chichester: Wiley.
 
 Kozak, A. (1988). A variable-exponent taper equation. Canadian Journal of Forest Research, 18(11), 1363-1368.
 
@@ -91,5 +97,9 @@ Schneider, P. R. (1993). Introdução ao manejo florestal. Santa Maria: Ed. UFSM
 Schneider, P. R. (1998). Análise de regressão aplicada à Engenharia Florestal (2ª ed.). Santa Maria: UFSM, CEPEF.
 
 Schöepfer, W. (1966). Automatisierung des Massen-, Sorten- und Wertberechnung stehender Waldbestände. Freiburg: Baden-Württembergische Forstliche Versuchs- und Forschungsanstalt.
+
+Silva, G. F., Mendonça, A. R., Dias, A. N., Nogueira, G. S., Silva, J. A. A., Oliveira, M. L. R., & Ferreira, R. L. C. (2022). Padronização da simbologia em mensuração e manejo florestal. Alegre: Associação Brasileira de Mensuração Florestal.
+
+Silva, J. A. A. da, & Paula Neto, F. de. (1979). Princípios básicos de dendrometria. Recife: UFRPE.
 
 Weisberg, S. (2014). Applied Linear Regression (4ª ed.). Nova Jersey: John Wiley & Sons, Inc.

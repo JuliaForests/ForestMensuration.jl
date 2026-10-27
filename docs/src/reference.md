@@ -9,42 +9,44 @@ Documentation for [ForestMensuration](https://github.com/JuliaForests/ForestMens
 ```@docs
 ForestMensuration
 ForestInventory
-ForestModeling
 ```
 
 ## Cubage
 
 ```@docs
 cubage
+treevolume
+CubingMethod
+Smalian
+Huber
+Newton
 smalian
 newton
 huber
-hohenadl
 artificialformfactor
-naturalformfactor
-quotientform
 barkfactor
+barkpercentage
 conevolume
 cylindervolume
-diameterinterpolation
-heightinterpolation
 ```
 
-## Dendrometric Averages
+## Stand Structure
+
+The structure of a stand, or of the species of a community, per hectare:
 
 ```@docs
-dmetrics
-hmetrics
 standmetrics
-dm
-dg
-dw
-dz
-dd
-dh
-hm
-hd
-hg
+```
+
+The diameter averages that are not in the summary, one by one, for those who need them:
+
+```@docs
+arithmeticmeandiameter
+quadraticmeandiameter
+weisediameter
+centralbasalareadiameter
+dominantdiameter
+hohenaldiameters
 ```
 
 ## Frequency and Diametric Tables
@@ -61,26 +63,12 @@ Modules = [ForestInventory]
 Order = [:function, :type, :constant]
 ```
 
-## Site Classification
+## Forest Community Biodiversity
 
 ```@docs
-siteClassification
-hdomClassification
-siteTable
-```
-
-## Stem Taper Application
-
-```@docs
-taperdiameter
-taperheight
-taperedvolume
-logassortment
-```
-
-## Regression and Stem Taper Fitting (re-exported from ForestModeling.jl)
-
-```@autodocs
-Modules = [ForestModeling]
-Order = [:function, :type, :constant]
+communitymatrix
+diversity
+floristicdistance
+floristicsimilarity
+speciesaccumulation
 ```
