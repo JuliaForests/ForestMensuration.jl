@@ -14,20 +14,15 @@ ForestInventory
 ## Cubage
 
 ```@docs
-cubage
-treevolume
-CubingMethod
-Smalian
-Huber
-Newton
+cylindervolume
+conevolume
 smalian
-newton
 huber
+newton
 artificialformfactor
 barkfactor
 barkpercentage
-conevolume
-cylindervolume
+cubage
 ```
 
 ## Stand Structure

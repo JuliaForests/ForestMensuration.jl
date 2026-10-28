@@ -47,7 +47,7 @@ _autowidth(x::AbstractVector{<:Real}) = _classbreadth(_amplitude(x), _sturges(le
 
 function _autowidth(x::AbstractVector{<:Quantity})
   ux = _sampleunit(x)
-  return _classbreadth(ustrip(uconvert(ux, _amplitude(x))), _sturges(length(x))) * ux
+  return _classbreadth(ustrip(ux, _amplitude(x)), _sturges(length(x))) * ux
 end
 
 """
@@ -131,7 +131,7 @@ function frequencytable(x::AbstractVector{<:Quantity}, hi::Quantity)
   ux = _sampleunit(x)
   # classification happens on plain numbers in a single unit, then the class limits are
   # restored so the table speaks the same unit as the observations
-  ftable = frequencytable(ustrip.(uconvert.(ux, x)), ustrip(uconvert(ux, hi)))
+  ftable = frequencytable(ustrip.(ux, x), ustrip(ux, hi))
   ftable.LI = ftable.LI * ux
   ftable.Xi = ftable.Xi * ux
   ftable.LS = ftable.LS * ux
@@ -333,7 +333,7 @@ function diametrictable(d::AbstractVector{<:Length}, hi::Length; plotarea::Area=
     throw(DomainError("Diameters must be positive"))
   end
   ftable = frequencytable(d, hi)
-  ftable.g = basalarea.(ftable.Xi)
+  ftable.g = sectionalarea.(ftable.Xi)
   ftable.ng = ftable.fi .* ftable.g
   ftable.Ng = cumsum(ftable.ng)
   # expansion factor to the reference area (ha or ac) of the plot area

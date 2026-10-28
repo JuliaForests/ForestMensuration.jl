@@ -12,9 +12,7 @@ Rows represent plots and columns represent species.
 A DataFrame with plots as rows and species counts as columns. Missing values are filled with zeros.
 """
 function communitymatrix(plots::AbstractVector, species::AbstractVector)
-  if length(plots) != length(species)
-    throw(DimensionMismatch("plots and species vectors must have the same length"))
-  end
+  checklengths(:plots => plots, :species => species)
   # create temporary dataframe
   df = DataFrame(plots=plots, s=species)
   # count occurrences per species per plot

@@ -2,105 +2,135 @@
 
 ## Computing the Cubage
 
-Two functions calculate the rigorous volume of felled trees from the diameters measured along the bole. The first argument of both is the **method**, the formula that matches where the diameters were measured on the bole: `Smalian` (at the ends of the sections), `Huber` (at their middles) or `Newton` (at both). The measurements are the heights annotated in the field (the absolute method), or only the length of the log, when the sections are equal (the relative method, see below).
+The rigorous volume of felled trees comes from the diameters measured along the bole. How they are annotated decides the function:
 
-- `cubage` gives the commercial volume, the one that was actually **measured**: the sections between the measurements, since the diameters are measured up to the commercial height. It only needs the heights and the diameters.
-- `treevolume` extends it to the whole tree: the stump and the tip, which are not measured but modeled (a cylinder and a cone), and the form factor. It needs the diameter at breast height `D` and the total height `H` of each tree.
+- **Absolute positions**: the height of each measurement is annotated. `cubage` gives the volume of the whole tree: the stump (a cylinder), the measured sections (Smalian's method) and the tip (a cone), and the form factor. It needs the total height `H` and the diameter at breast height `D` of each tree.
+- **Relative positions**: the log is divided into equal sections and only its length is annotated (0, 10, ..., 100 % of the length, for example). There is no stump, no tip and no form factor, only the volume of the log: `smalian` and `huber` with the length of the log.
 
-Variable names follow the symbology standardized by the Brazilian Association of Forest Mensuration (Silva et al., 2022; see the Bibliography): `D` is the diameter at breast height, `H` the total height, `d` and `h` a diameter and a height at any position of the stem, `E` the bark thickness, `v` a volume, `f` the form factor, and the suffix `s` means without bark.
+Variable names follow the symbology standardized by the Brazilian Association of Forest Mensuration (Silva et al., 2022; see the Bibliography): `D` is the diameter at breast height, `H` the total height, `d` and `h` a diameter and a height at any position of the stem, `l` a length, `E` the bark thickness, `v` a volume, `f` the form factor, and the suffix `s` means without bark.
 
 Nothing is interpolated: the volumes use only the measured diameters, and `D` and `H` are always the annotated values, never read from the profile (the height of the diameter at breast height is not the same in every country). All lengths must carry units (e.g., `cm` for diameters and `m` for heights; any length unit works).
 
-### The Measured Volume
+### A Section
 
-The numerical examples are the tree of Machado & Figueiredo Filho (2003), Chapter 5, Tables 5.1 to 5.3 (diameter at breast height 22.3 cm, total height 15.9 m).
+The volume of a single section (a log) by the three formulas, with the first section of the tree of Machado & Figueiredo Filho (2003), Tables 5.1 to 5.3: 1.2 m long, 27.7 cm at the base, 24.8 cm at the middle and 22.3 cm at the top.
 
 ```@example ex_cub_01
 using ForestMensuration
 using Unitful
 
-# Heights (m) and diameters with bark (cm) of the measurements, from the stump up (Table 5.1)
+smalian(1.2u"m", 27.7u"cm", 22.3u"cm"), huber(1.2u"m", 24.8u"cm"), newton(1.2u"m", 27.7u"cm", 24.8u"cm", 22.3u"cm")
+```
+
+### The Volume of a Tree
+
+The tree of Machado & Figueiredo Filho (2003), Table 5.1: the heights and the diameters with bark of the measurements, from the stump up, the total height (15.9 m) and the diameter at breast height (22.3 cm).
+
+```@example ex_cub_01
 h = [0.1, 1.3, 3.3, 5.3, 7.3, 9.3, 11.3, 13.3, 15.3]u"m"
 d = [27.7, 22.3, 20.3, 18.8, 17.5, 14.3, 9.5, 6.0, 1.2]u"cm"
 
-# Smalian's method: every measurement is the end of a section
-cubage(Smalian, h, d)
+cubage(15.9u"m", 22.3u"cm", h, d)
 ```
 
 \
 
-With Huber's and Newton's methods the measurements alternate between the limit of a section and its middle, from a limit to a limit. Huber uses only the diameters at the middles, and Newton uses all of them.
+- `v`: Total volume of the tree, `vt + vm + vp`
+- `vt`: Volume of the stump, the cylinder from the ground to the first measurement
+- `vm`: Commercial volume, the measured sections by Smalian's method (`smalian(h, d)`)
+- `vp`: Volume of the tip, the cone from the last measurement to `H`
+- `H`, `D`: Total height and diameter at breast height, as annotated
+- `f`: Artificial form factor
 
-```@example ex_cub_01
-# Limits at 0.1, 1.3, 3.3, ..., 15.3 m; middles at 0.7, 2.3, 4.3, ..., 14.3 m (Table 5.3)
-hn = [0.1, 0.7, 1.3, 2.3, 3.3, 4.3, 5.3, 6.3, 7.3, 8.3, 9.3, 10.3, 11.3, 12.3, 13.3, 14.3, 15.3]u"m"
-dn = [27.7, 24.8, 22.3, 20.7, 20.3, 19.4, 18.8, 18.1, 17.5, 17.0, 14.3, 11.5, 9.5, 7.6, 6.0, 4.5, 1.2]u"cm"
-
-cubage(Huber, hn, dn)
-```
-
-\
-
-```@example ex_cub_01
-cubage(Newton, hn, dn)
-```
-
-\
+The stump is part of the total volume `v`. Some books do not count it: Machado & Figueiredo Filho (2003) add up the sections and the tip only. The columns are separate for that: the volume without the stump is `v - vt`, or `vm + vp`.
 
 #### Including Bark Thickness
 
-With the bark thickness it is possible to calculate the volume without bark, the volume of the bark and the bark factor. Note: the thickness `E` is the bark thickness (one side of the stem), as a length quantity; the diameter without bark is `ds = d - 2E`, and the function takes care of the factor 2.
+With the bark thickness `E` (one side of the stem, so that the diameter without bark is `ds = d - 2E`), the same volumes are calculated without bark.
 
 ```@example ex_cub_01
-# Bark thickness at the corresponding heights (cm), (d - ds) / 2 with the diameters without bark of Table 5.1
+# Bark thickness at the heights h (cm), (d - ds) / 2 with the diameters without bark of Table 5.1
 E = [1.8, 1.7, 1.55, 1.2, 1.0, 0.7, 0.6, 0.4, 0.1]u"cm"
 
-cubage(Smalian, h, d, E)
+cubage(15.9u"m", 22.3u"cm", h, d, E)
 ```
 
 \
 
-- `vm`, `vms`: Commercial volume with bark and without bark (suffix `s` = without bark)
-- `vb`: Volume of the bark (`vm - vms`)
+First the columns with bark, as without the bark thickness, and then:
+
+- `vs`, `vts`, `vms`, `vps`: Total volume, stump, commercial volume and tip without bark
+- `vb`: Volume of the bark, `v - vs`
 - `kb`: Bark factor
-- `pb`: Percentage of bark, the share of the volume with bark that is bark (`barkpercentage(vm, vms)`)
+- `pb`: Percentage of bark, the share of the volume with bark that is bark
 
-#### Equal Sections: the Relative Method
+### Cubing Multiple Trees
 
-In the relative method the log is divided into a number of equal sections, and what matters is the number of positions, not their percentages: only the length `l` of the log and the diameters, in order, are needed. There is no total height, no stump, no tip and so no form factor. It is called with the length of the log instead of the heights, `cubage(method, l, d)`.
+Field data usually has a row per measurement, with the tree identifier, and the total height and the diameter at breast height repeated in every row of the tree. Pass the identifiers first: the result has a row per tree, in the order in which they appear, and carries `D` and `H` as columns, so it can go straight into a regression such as `v ~ D + H`. `H` and `D` must be the same in every row of a tree.
 
-The relative method is the way of **measuring**, the methodology of Hohenadl: equal sections, with the same relative positions in every log. The **calculation** is the formula of the method that matches where the diameters were taken:
+```@example ex_cub_02
+using ForestMensuration
+using DataFrames
+using Unitful
 
-| Where the diameters were measured | Method | Formula |
+# The tree of Table 5.1 (A) and the tree of Table 2 of Floriano (2025) (B), a row per measurement
+trees = vcat(
+    DataFrame(tree = "A",
+        h = [0.1, 1.3, 3.3, 5.3, 7.3, 9.3, 11.3, 13.3, 15.3]u"m",
+        d = [27.7, 22.3, 20.3, 18.8, 17.5, 14.3, 9.5, 6.0, 1.2]u"cm",
+        E = [1.8, 1.7, 1.55, 1.2, 1.0, 0.7, 0.6, 0.4, 0.1]u"cm",
+        D = 22.3u"cm", H = 15.9u"m"),
+    DataFrame(tree = "B",
+        h = [0.35, 0.95, 1.30, 2.50, 3.70, 4.90, 6.10, 7.30, 8.50, 9.70, 10.90, 12.10]u"m",
+        d = [19.6, 15.9, 14.3, 12.8, 12.6, 11.7, 10.5, 9.2, 7.2, 5.0, 2.9, 1.1]u"cm",
+        # illustrative bark thickness: the book does not measure the bark
+        E = [1.2, 1.0, 0.9, 0.8, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]u"cm",
+        D = 14.3u"cm", H = 12.53u"m"))
+
+cubage(trees.tree, trees.H, trees.D, trees.h, trees.d)
+```
+
+\
+
+The total of tree B is the one of Floriano (2025) by Smalian's method, stump and tip included: 0.11127 m³.
+
+#### Including Bark Thickness for Multiple Trees
+
+```@example ex_cub_02
+cubage(trees.tree, trees.H, trees.D, trees.h, trees.d, trees.E)
+```
+
+### Logs at Relative Positions
+
+When the log is divided into equal sections, only its length `l` and the diameters, in order, are annotated. The volume is calculated by the formula that matches where the diameters were taken:
+
+| Where the diameters were measured | Function | Sections |
 |:--|:--|:--|
-| At the ends of the sections (0, 10, ..., 100 % of the length) | `Smalian` | mean of the areas of the two ends |
-| At the middles of the sections (10, 30, 50, 70, 90 %, for 5 sections) | `Huber` | area at the middle; with equal sections it is the volume of Hohenadl, `l / n` times the sum of the areas |
-| At the ends and at the middles (limit, middle, limit, ...) | `Newton` | weighted mean of the areas |
+| At the limits of the sections (0, 10, ..., 100 % of the length) | `smalian(l, d)` | ``n`` diameters, ``n - 1`` sections of ``l / (n - 1)`` |
+| At the middles of the sections (10, 30, 50, 70, 90 %, for 5 sections) | `huber(l, d)` | ``n`` diameters, ``n`` sections of ``l / n`` |
 
-There is no `Hohenadl` method for that reason: it is how the diameters were measured, not another formula.
+Huber's formula with the diameters at the middles of equal sections is the methodology of Hohenadl.
 
-Sections v2 to v8 of Table 5.1 have the same length (2 m), so the book calculates them with the generic formula (0.2598 m³ in the book): `Smalian`, with the diameters at the ends.
+Sections v2 to v8 of Table 5.1 have the same length (2 m), so the book calculates them with the generic formula (0.2598 m³ in the book):
 
 ```@example ex_cub_01
-# 8 diameters, the ends of 7 sections, in a log of 14 m (from 1.3 m to 15.3 m)
-cubage(Smalian, 14.0u"m", d[2:end])
+# 8 diameters, the limits of 7 sections, in a log of 14 m (from 1.3 m to 15.3 m)
+smalian(14.0u"m", d[2:end])
 ```
 
 \
 
-The tree of Table 5.4 is measured by the methodology of Hohenadl: the 15.8 m of bole above the stump of 0.1 m (15.9 - 0.1) are divided into 10 sections, with the diameter at the middle of each one. The calculation is Huber's:
+The tree of Table 5.4 is measured by the methodology of Hohenadl: the 15.8 m of bole above the stump of 0.1 m (15.9 - 0.1) are divided into 10 sections, with the diameter at the middle of each one.
 
 ```@example ex_cub_01
-dh = [24.0, 20.5, 19.7, 18.6, 17.7, 15.8, 11.5, 8.0, 5.9, 1.5]u"cm"
-
-cubage(Huber, 15.8u"m", dh)
+huber(15.8u"m", [24.0, 20.5, 19.7, 18.6, 17.7, 15.8, 11.5, 8.0, 5.9, 1.5]u"cm")
 ```
 
 \
 
-#### Logs from a Spreadsheet
+#### Logs from a Field Sheet
 
-The field sheets of this method have a row per log: its length and then its diameters at the same relative positions (0, 10, ..., 100 % of the length, for example). Read the sheet with the units in the headers, `name (unit)`, and `parseunits` attaches them to the columns. Then the call is the lengths and the columns of the diameters. The result has a row per log, in the same order, and the identifier columns stay in the table, beside the result. The rows below are logs of the sheet of the Flona do Jamari.
+The field sheets of this method have a row per log: its length and then its diameters at the same relative positions. Read the sheet with the units in the headers, `name (unit)`, and `parseunits` attaches them to the columns. Then pass the lengths and the diameters as a matrix, a row per log: the result is the volume of each log, in the same order, ready to be a column of the sheet. The rows below are logs of the sheet of the Flona do Jamari, with the diameters at 0, 10, ..., 100 % of the length.
 
 ```@example ex_cub_01
 using DataFrames
@@ -108,121 +138,24 @@ using DataFrames
 sheet = DataFrame(
     "log" => ["1A", "1B", "1C"],
     "l (m)" => [7.10, 7.67, 7.62],
-    "d0 (cm)" => [81.5, 67.2, 61.1], "d1 (cm)" => [74.5, 63.7, 60.1], "d2 (cm)" => [72.9, 63.5, 60.2],
-    "d3 (cm)" => [69.5, 62.7, 59.8], "d4 (cm)" => [67.2, 62.0, 58.6], "d5 (cm)" => [66.2, 61.3, 58.6],
-    "d6 (cm)" => [65.8, 61.4, 58.3], "d7 (cm)" => [64.9, 61.7, 59.4], "d8 (cm)" => [64.9, 61.7, 58.7],
-    "d9 (cm)" => [64.8, 59.5, 57.7], "d10 (cm)" => [65.3, 59.4, 57.7],
+    "d0 (cm)" => [81.5, 67.2, 61.1], "d10 (cm)" => [74.5, 63.7, 60.1], "d20 (cm)" => [72.9, 63.5, 60.2],
+    "d30 (cm)" => [69.5, 62.7, 59.8], "d40 (cm)" => [67.2, 62.0, 58.6], "d50 (cm)" => [66.2, 61.3, 58.6],
+    "d60 (cm)" => [65.8, 61.4, 58.3], "d70 (cm)" => [64.9, 61.7, 59.4], "d80 (cm)" => [64.9, 61.7, 58.7],
+    "d90 (cm)" => [64.8, 59.5, 57.7], "d100 (cm)" => [65.3, 59.4, 57.7],
 )
 sheet = parseunits(sheet)
 
-# the length and the diameters, the columns from the third on
-hcat(select(sheet, :log), cubage(Smalian, sheet.l, sheet[:, 3:end]))
-```
-
-
-The diameters measured at the middles of the sections, as in Hohenadl's methodology, are calculated by Huber's formula, with the same layout. A single log is the same call with a length and a vector of diameters, `cubage(Smalian, sheet.l[1], Vector(sheet[1, 3:end]))`.
-
-```@example ex_cub_01
-# The diameters of the sheet at 10, 30, 50, 70 and 90 %: the middles of 5 equal sections
-hcat(select(sheet, :log), cubage(Huber, sheet.l, sheet[:, [4, 6, 8, 10, 12]]))
-```
-
-
-### The Volume of the Whole Tree
-
-`treevolume` partitions the volume into the stump, the commercial part (the measured sections, as in `cubage`) and the tip. When the last measurement is below the total height `H`, the tip is cubed as a cone above it. With Smalian's method, a last diameter of zero is the apex of the tree.
-
-```@example ex_cub_01
-# Diameter at breast height and total height, as annotated
-treevolume(Smalian, h, d; D = 22.3u"cm", H = 15.9u"m")
+# the 11 diameters at the limits of 10 sections: Smalian's formula
+sheet.vm = smalian(sheet.l, Matrix(sheet[:, r"^d"]))
+sheet[:, [:log, :l, :vm]]
 ```
 
 \
 
-- `v`: Total volume of the tree
-- `vt`: Volume of the stump, a cylinder with the first measured diameter
-- `vm`: Commercial volume, the measured sections (the same as `cubage`)
-- `vp`: Volume of the tip, the cone above the last measurement
-- `hm`: Commercial height, the height of the last measurement
-- `D`, `H`: Diameter at breast height and total height, as annotated
-- `f`: Artificial form factor
-
-#### A Tree Cubed by the Three Methods
-
-The tree of Table 2 of Floriano (2025) has a stump of 0.35 m, sections of different lengths and a tip, and the book gives its total volume by each method, stump and tip included. The measurements of Smalian's method are the limits of the sections; Huber's and Newton's also need the diameter at the middle of each section, interleaved with the limits (limit, middle, limit, ...).
+The diameters at 10, 30, 50, 70 and 90 % are the middles of 5 equal sections, Hohenadl's methodology, calculated by Huber's formula:
 
 ```@example ex_cub_01
-# limits of the sections (m) and diameters with bark (cm); the diameter at breast height is the one of the third limit
-hf = [0.35, 0.95, 1.30, 2.50, 3.70, 4.90, 6.10, 7.30, 8.50, 9.70, 10.90, 12.10]u"m"
-df = [19.6, 15.9, 14.3, 12.8, 12.6, 11.7, 10.5, 9.2, 7.2, 5.0, 2.9, 1.1]u"cm"
-# diameters at the middle of each section
-dmf = [16.5, 14.8, 13.4, 12.9, 11.9, 11.2, 9.6, 8.2, 5.9, 3.8, 1.8]u"cm"
-
-hmf = (hf[1:end-1] .+ hf[2:end]) ./ 2
-hn_f = [hf[1]; vec([hmf'; hf[2:end]'])]
-dn_f = [df[1]; vec([dmf'; df[2:end]'])]
-
-# the book: 0.11127 (Smalian), 0.10717 (Huber) and 0.10854 m³ (Newton)
-treevolume(Smalian, hf, df; D = 14.3u"cm", H = 12.53u"m")
-```
-
-
-```@example ex_cub_01
-treevolume(Huber, hn_f, dn_f; D = 14.3u"cm", H = 12.53u"m")
-```
-
-
-```@example ex_cub_01
-treevolume(Newton, hn_f, dn_f; D = 14.3u"cm", H = 12.53u"m")
-```
-
-
-The stump is a cylinder and is part of the total volume `v` of this book. Other books do not count the stump: Machado & Figueiredo Filho (2003) add up the sections and the tip only. The columns are separate for that: the volume without the stump is `v - vt`, or `vm + vp`.
-
-#### Including Bark Thickness
-
-```@example ex_cub_01
-treevolume(Smalian, h, d, E; D = 22.3u"cm", H = 15.9u"m")
-```
-
-\
-
-The columns `v`, `vt`, `vm` and `vp` refer to the volumes with bark, and `vs`, `vts`, `vms` and `vps` to the volumes without bark. `vb` is the volume of the bark and `kb` the bark factor.
-
-### Cubing Multiple Trees
-
-To calculate cubage for many trees at once, organize your data in a DataFrame with columns for tree identifiers, heights, diameters, the diameter at breast height and the total height of the tree (repeated on every row of the tree), and optionally bark thickness. Pass the identifiers with the `id` keyword. `cubage` only needs the heights and diameters.
-
-Do not broadcast `treevolume` over the columns (`treevolume.(Smalian, df.h, df.d; ...)`): each call needs the whole profile of a tree, not one measurement. The `id` keyword does that work, with `D` and `H` as columns of the data (a value per row; the value of the first row of each tree is used). The result has a row per tree and carries `D` and `H` as columns, so it can go straight into a regression such as `v ~ D + H`.
-
-```@example ex_cub_02
-using ForestMensuration
-using DataFrames
-using Unitful
-
-# Two trees: the diameters with bark and the diameters without bark of Table 5.1, as if they were two trees
-data = DataFrame(
-    tree = repeat([1, 2], inner = 9),
-    h = repeat([0.1, 1.3, 3.3, 5.3, 7.3, 9.3, 11.3, 13.3, 15.3], 2),
-    d = [27.7, 22.3, 20.3, 18.8, 17.5, 14.3, 9.5, 6.0, 1.2, 24.1, 18.9, 17.2, 16.4, 15.5, 12.9, 8.3, 5.2, 1.0],
-    bark = repeat([1.8, 1.7, 1.55, 1.2, 1.0, 0.7, 0.6, 0.4, 0.1], 2),
-    D = repeat([22.3, 18.9], inner = 9),
-    H = fill(15.9, 18)
-)
-
-# The whole tree, for each tree
-treevolume(Smalian, data.h .* u"m", data.d .* u"cm"; D = data.D .* u"cm", H = data.H .* u"m", id = data.tree)
-```
-
-\
-
-#### Including Bark Thickness for Multiple Trees
-
-Additionally, bark thickness values can be provided to calculate bark factors and volumes without bark.
-
-```@example ex_cub_02
-# Calculate cubage including bark thickness
-treevolume(Smalian, data.h .* u"m", data.d .* u"cm", data.bark .* u"cm"; D = data.D .* u"cm", H = data.H .* u"m", id = data.tree)
+huber(sheet.l, Matrix(sheet[:, [:d10, :d30, :d50, :d70, :d90]]))
 ```
 
 ## Frequency and Statistical Functions

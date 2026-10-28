@@ -176,7 +176,7 @@ function dominanttreecount(d::AbstractVector{<:Length}, area::Area)
   # (100 trees/ha for metric, 40 trees/ac for imperial)
   refarea = referencearea(area)
   standard = refarea == u"ha" ? 100 : 40
-  nD = round(Int, ustrip(uconvert(refarea, standard * area)))
+  nD = round(Int, ustrip(refarea, standard * area))
   # validate against sample size: zero if we need more trees than available
   return 0 < nD <= length(d) ? nD : 0
 end
@@ -401,15 +401,13 @@ function standmetrics(d::AbstractVector{<:Length}, area::Area)
   Dm, sD = mean_and_std(d)
   # Dg² = Dm² + variance of the population
   Dg = n > 1 ? sqrt(Dm^2 + sD^2 * (n - 1) / n) : Dm
-  g = n * basalarea(Dg)
+  g = n * sectionalarea(Dg)
   EF = expansionfactor(area)
   return DataFrame(n=n, g=g, N=n * EF, G=g * EF, Dm=Dm, Dg=Dg, CD=sD / Dm * 100)
 end
 
 function standmetrics(species::AbstractVector, plots::AbstractVector, d::AbstractVector{<:Length}, area::Area)
-  if length(species) != length(plots) || length(plots) != length(d)
-    throw(DimensionMismatch("species, plots, and d vectors must have the same length"))
-  end
+  checklengths(:species => species, :plots => plots, :d => d)
   nplots = unique(plots) |> length
   ft = combine(groupby(DataFrame(species=species, plots=plots, d=d), :species)) do s
     hcat(standmetrics(s.d, area), DataFrame(plots=unique(s.plots) |> length))

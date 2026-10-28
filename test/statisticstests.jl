@@ -4,10 +4,10 @@
     @testset "Basal Area Tests" begin
       dStandard = 30.0u"cm"
       expectedBasalArea = 0.07068583470577035
-      @test basalarea(dStandard) |> ustrip ≈ expectedBasalArea atol = 1e-6
+      @test sectionalarea(dStandard) |> ustrip ≈ expectedBasalArea atol = 1e-6
       dZero = 0.0u"cm"
-      @test basalarea(dZero) == 0.0u"m^2"
-      @test_throws DomainError basalarea(-dStandard)
+      @test sectionalarea(dZero) == 0.0u"m^2"
+      @test_throws DomainError sectionalarea(-dStandard)
     end
 
     diameters = [10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0, 22.5, 24.0]u"cm"
@@ -44,7 +44,7 @@
 
       # Dg and g come from the mean and the standard deviation: they equal the direct calculation
       @test dfStand.Dg[1] ≈ ustrip(quadraticmeandiameter(diameters))
-      @test dfStand.g[1] ≈ ustrip(sum(basalarea, diameters))
+      @test dfStand.g[1] ≈ ustrip(sum(sectionalarea, diameters))
 
       # a single tree has no standard deviation: Dg is its diameter and CD is NaN
       dfOne = standmetrics([20.0]u"cm", plotArea)

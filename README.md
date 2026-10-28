@@ -30,13 +30,13 @@ ForestMensuration.jl is designed for professionals and researchers in forestry,
 dendrometry, and forest biometrics. Its key features include:
 
 - **Cubage (Tree Volume Estimation):**
-  Rigorous section methods (Smalian, Huber, Newton) for individual logs and
-  full bole profiles, plus `cubage`, which gives the volume of the measured sections, and
-  `treevolume`, which extends it to the whole tree (stump, commercial part and tip) and
-  the form factor. Both take the method as the first argument, work with and without bark,
-  and read the absolute heights of the measurements (many trees can be stacked). The relative
-  method of equal sections (measured as in Hohenadl, calculated by the formula of the method) is
-  `cubage(method, l, d)`, with the length of the log. Nothing is interpolated.
+  Rigorous section methods (Smalian, Huber, Newton) for individual logs, and `cubage`, the
+  volume of the whole tree from the diameters measured at absolute heights: the stump, the
+  sections by Smalian's method and the tip, and the form factor, with and without bark, for
+  one tree or many trees told apart by `id`. Logs measured at relative positions (equal
+  sections) give only the volume of the log: `smalian` and `huber` with the length of the log
+  (Huber's at the middles of the sections is the methodology of Hohenadl), for one log or a
+  field sheet with a log per row. Nothing is interpolated.
 
 - **Stand Structure:**
   Number of trees, basal area, arithmetic and quadratic mean diameter and their coefficient
@@ -79,8 +79,8 @@ results always carry units.
 
 ### Cubage Calculation
 
-Compute the volume of a single log using the Smalian method, or partition a whole tree
-into a detailed volume/form-factor table.
+Compute the volume of a single log, of a whole tree with its stump and tip, or of the logs
+of a field sheet measured at relative positions.
 
 ```julia-repl
 using ForestMensuration
@@ -90,59 +90,51 @@ using ForestMensuration
 julia> smalian(1.2u"m", 27.7u"cm", 22.3u"cm")
 0.05959192856814871 m^3
 
-# the full tree profile: cumulative heights and diameters from the ground up
+# the whole tree: the heights and the diameters from the ground up, the total height and the
+# diameter at breast height (the annotated values; nothing is interpolated)
 julia> h = [0.1, 1.3, 3.3, 5.3, 7.3, 9.3, 11.3, 13.3, 15.3]u"m";
 julia> d = [27.7, 22.3, 20.3, 18.8, 17.5, 14.3, 9.5, 6.0, 1.2]u"cm";
-# cubage: the commercial volume, the one that was measured (the sections between the measurements);
-# the method (Smalian, Huber or Newton) says how the bole was sectioned and measured
-julia> cubage(Smalian, h, d)
-1×1 DataFrame
- Row │ vm
-     │ Quantity…
-─────┼──────────────
-   1 │ 0.319069 m^3
+julia> cubage(15.9u"m", 22.3u"cm", h, d)
+1×7 DataFrame
+ Row │ v             vt              vm            vp              H          D          f
+     │ Quantity…     Quantity…       Quantity…     Quantity…       Quantity…  Quantity…  Float64
+─────┼────────────────────────────────────────────────────────────────────────────────────────────
+   1 │ 0.325118 m^3  0.00602628 m^3  0.319069 m^3  2.26195e-5 m^3     15.9 m    22.3 cm  0.523534
 
-# treevolume: the whole tree, with the stump and the tip (a cylinder and a cone, which are not
-# measured) and the form factor. D and H are the annotated values and nothing is interpolated.
-julia> treevolume(Smalian, h, d; D=22.3u"cm", H=15.9u"m")
-1×8 DataFrame
- Row │ v             vt              vm            vp              hm         D          H          f
-     │ Quantity…     Quantity…       Quantity…     Quantity…       Quantity…  Quantity…  Quantity…  Float64
-─────┼───────────────────────────────────────────────────────────────────────────────────────────────────────
-   1 │ 0.325118 m^3  0.00602628 m^3  0.319069 m^3  2.26195e-5 m^3     15.3 m    22.3 cm     15.9 m  0.523534
+# v: tree volume; vt: stump (a cylinder); vm: the measured sections (Smalian); vp: tip (the cone above
+# the last measurement, up to H); H: total height; D: diameter at breast height; f: form factor
 
-# v: tree volume; vt: stump; vm: commercial; vp: tip (the cone above the last measurement, up to H);
-# hm: commercial height; D: diameter at breast height; H: total height; f: form factor
+# with the bark thickness E (one side, ds = d - 2E): the same volumes without bark and the bark
+julia> E = [1.8, 1.7, 1.55, 1.2, 1.0, 0.7, 0.6, 0.4, 0.1]u"cm";
+julia> select(cubage(15.9u"m", 22.3u"cm", h, d, E), :v, :vs, :vb, :kb, :pb)
+1×5 DataFrame
+ Row │ v             vs           vb             kb        pb
+     │ Quantity…     Quantity…    Quantity…      Float64   Float64
+─────┼─────────────────────────────────────────────────────────────
+   1 │ 0.325118 m^3  0.24458 m^3  0.0805388 m^3  0.868459  24.7722
 
-# the relative method: equal sections of a log, only its length and the diameters in order matter
-# (Smalian, diameters at the ends: sections v2 to v8 of Table 5.1, 7 sections of 2 m)
-julia> cubage(Smalian, 14.0u"m", d[2:end])
-1×1 DataFrame
- Row │ vm
-     │ Quantity…
-─────┼──────────────
-   1 │ 0.259477 m^3
+# relative positions: equal sections of a log, only its length and the diameters in order matter
+# (Smalian, diameters at the limits: sections v2 to v8 of Table 5.1, 7 sections of 2 m)
+julia> smalian(14.0u"m", d[2:end])
+0.2594774890287588 m^3
 
-# many logs of a field sheet, a row per log: the length and the diameters at 0, 10, ..., 100 %
+# a field sheet, a log per row: the length and the diameters at 0, 50 and 100 % of each log
 # (the units are in the headers, `parseunits` attaches them)
 julia> sheet = parseunits(DataFrame("log" => ["1A", "1B"], "l (m)" => [7.10, 7.67],
-         "d0 (cm)" => [81.5, 67.2], "d1 (cm)" => [74.5, 63.7], "d2 (cm)" => [72.9, 63.5]));
-julia> hcat(select(sheet, :log), cubage(Smalian, sheet.l, sheet[:, 3:end]))
-2×2 DataFrame
- Row │ log     vm
-     │ String  Quantity…
-─────┼─────────────────────
-   1 │ 1A      3.21436 m^3
-   2 │ 1B      2.50952 m^3
+         "d0 (cm)" => [81.5, 67.2], "d50 (cm)" => [74.5, 63.7], "d100 (cm)" => [72.9, 63.5]));
+julia> sheet.vm = smalian(sheet.l, Matrix(sheet[:, r"^d"]));
+julia> sheet
+2×6 DataFrame
+ Row │ log     l          d0         d50        d100       vm
+     │ String  Quantity…  Quantity…  Quantity…  Quantity…  Quantity…
+─────┼─────────────────────────────────────────────────────────────────
+   1 │ 1A          7.1 m    81.5 cm    74.5 cm    72.9 cm  3.21436 m^3
+   2 │ 1B         7.67 m    67.2 cm    63.7 cm    63.5 cm  2.50952 m^3
 
-# the methodology of Hohenadl (10 equal sections, diameters at their middles, Table 5.4) is measured that
-# way and calculated by Huber's formula: 15.8 m of bole above the stump of 0.1 m
-julia> cubage(Huber, 15.8u"m", [24.0, 20.5, 19.7, 18.6, 17.7, 15.8, 11.5, 8.0, 5.9, 1.5]u"cm")
-1×1 DataFrame
- Row │ vm
-     │ Quantity…
-─────┼──────────────
-   1 │ 0.313526 m^3
+# the methodology of Hohenadl (10 equal sections, diameters at their middles, Table 5.4) is
+# Huber's formula: 15.8 m of bole above the stump of 0.1 m
+julia> huber(15.8u"m", [24.0, 20.5, 19.7, 18.6, 17.7, 15.8, 11.5, 8.0, 5.9, 1.5]u"cm")
+0.3135257003685299 m^3
 ```
 
 ### Stand Structure

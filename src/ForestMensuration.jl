@@ -3,7 +3,7 @@ Description:
 
 ForestMensuration.jl is a Julia package that provides a comprehensive set of functions for performing dendrometric calculations, for both planted and native forests. Designed with ease of use in mind, the package offers tools that simplify complex forestry calculations, making it straightforward to:
 
-- **Calculate the volume of felled trees (cubage)**: [`cubage`](@ref) gives the commercial volume, the one that was measured, and [`treevolume`](@ref) extends it to the whole tree, with the stump, the tip and the form factor, with and without bark. The method is the first argument ([`Smalian`](@ref), [`Huber`](@ref) or [`Newton`](@ref)), the measurements are absolute heights (many trees can be stacked), and the relative method of equal sections is `cubage(method, l, d)` with the length of the log, and nothing is interpolated: the diameter at breast height and the total height are always the annotated values.
+- **Calculate the volume of felled trees (cubage)**: [`cubage`](@ref) gives the volume of the whole tree from the diameters measured at absolute heights (the stump, the sections by Smalian's method and the tip) and the form factor, with and without bark, for one tree or many trees told apart by `id`. Logs measured at relative positions (equal sections) give only the volume of the log, with [`smalian`](@ref) and [`huber`](@ref) and the length of the log, one log or a field sheet with a log per row. Nothing is interpolated: the diameter at breast height and the total height are always the annotated values.
 - **Characterize the stand**: [`standmetrics`](@ref) gives the number of trees, the basal area, the mean and quadratic mean diameters and their coefficient of variation per hectare, and, with the species and the plots of the trees, the horizontal structure and the phytosociological indices (density, dominance, frequency, cover value and Importance Value Index) of each species. The other averages (Weise, central basal area, dominant and Hohenadl diameters) are available one by one.
 - **Create frequency tables**: Generate frequency and diametric tables to analyze the distribution of dendrometric variables such as diameter and height.
 - **Estimate forest inventory sampling designs**: all 14 designs, each its own
@@ -58,16 +58,11 @@ include("accumulation.jl")
 
 export
   # Cubage
-  CubingMethod,
-  Smalian,
-  Huber,
-  Newton,
   artificialformfactor,
   barkfactor,
   barkpercentage,
   conevolume,
   cubage,
-  treevolume,
   cylindervolume,
   smalian,
   newton,

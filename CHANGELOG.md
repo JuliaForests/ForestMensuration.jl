@@ -10,54 +10,44 @@
   result columns: they are spelled out in full (`dmetrics`/`hmetrics` →
   `diametermetrics`/`heightmetrics`, and the internal mean functions of `dendrometrics.jl`,
   below). Requires a `ForestFoundations.jl` that provides `inreferencevolume`.
-  - **`cubage` was rewritten and split in two.** **The method is the first argument again**
-    (`Smalian`, `Huber` or `Newton`, exported with the abstract type `CubingMethod`), as in the
-    original version. The method says how the bole was sectioned and measured: with Smalian's
-    every measurement is the end of a section; with Huber's and Newton's the measurements
-    alternate between the limit of a section and its middle, from a limit to a limit.
-    - **`cubage(method, h, d)` is the commercial volume**, the one that was measured: the sections
-      between the measurements, since the diameters are measured up to the commercial height. The
-      column is `vm` (and `vms, vb, kb, pb` with the bark thickness `E`; `pb` is the percentage of
-      bark, calculated by the new `barkpercentage(v, vs)`). It needs only the heights and
-      the diameters: no total height, no diameter at breast height.
-    - **`treevolume(method, h, d; D, H)` extends it to the whole tree**: the stump and the tip,
-      which are not measured but modeled (a cylinder and a cone), and the artificial form factor,
-      with `D` and `H` required. Output columns `vt, v0, vc, vr, vn, d, h, hc, aff, nff, qf` →
-      `v, vt, vm, vp, hm, D, H, f` (**`vt` now means the stump volume, not the total volume**; `vm`
-      is the commercial volume of `cubage` and `vp` the cone above the last measurement). With bark,
-      the columns are `v, vs, vb, kb, vt, vts, vm, vms, vp, vps, hm, D, H, f` (suffix `s` = without
-      bark; `kb` is the bark factor). `fH10` and `k` are not calculated, and **`naturalformfactor` and
-      `quotientform` were removed**: they only divided diameters or volumes that the user measured, and the
-      diameter at 0.1 H or at 0.5 H would have to be interpolated. `artificialformfactor` remains.
+  - **The cubage was reorganized by how the measurements are annotated.** The file follows the
+    order geometry (`cylindervolume`, `conevolume`), Smalian, Huber, Newton, form factor, bark and
+    `cubage`.
+    - **Absolute positions (the heights are annotated): `cubage(H, D, h, d)` is the volume of the
+      whole tree**: the stump (the cylinder up to the first measurement), the measured sections by
+      Smalian's method and the tip (the cone from the last measurement up to `H`), and the artificial
+      form factor. Columns `v, vt, vm, vp, H, D, f`. With the bark thickness, `cubage(H, D, h, d, E)`
+      adds, after them, the same volumes without bark and the bark: `vs, vts, vms, vps, vb, kb, pb`
+      (suffix `s` = without bark, Silva et al., 2022; `vb`, `kb`, `pb` = volume, factor and
+      percentage of bark, `b` of *bark*). `H` and `D` may be the columns of the table, repeated in
+      every row of the tree (they must be the same in all of them), and many trees stacked in the
+      same vectors are `cubage(id, H, D, h, d[, E])`, a row per tree in the order in which they
+      appear. Output columns of the old version `vt, v0, vc, vr, vn, d, h, hc, aff, nff, qf` → the
+      ones above (**`vt` now means the stump volume, not the total volume**).
+    - **`treevolume`, `CubingMethod`, `Smalian`, `Huber` and `Newton` (the types) were removed**,
+      together with the cubage of a tree by Huber's and Newton's methods (measurements limit, middle,
+      limit, ...), the column `hm`, the dropping of a last diameter of zero and the relative method by
+      Newton's formula. The volume of one section by each formula remains: `smalian(l, d1, d2)`,
+      `huber(l, d12)` and `newton(l, d1, d12, d2)`.
+    - **`smalian(h, d)` is the volume of the measured bole**, the sum of its sections by Smalian's
+      method, with the heights of the measurements.
+    - **Relative positions (only the length of the log is annotated, equal sections): the volume of
+      the log**, with no stump, tip or form factor. `smalian(l, d)` takes the diameters at the limits of
+      the sections (0, 10, ..., 100 % of the length) and `huber(l, d)` at their middles (10, 30, 50, 70
+      and 90 %, for 5 sections), which is the methodology of Hohenadl, so **the function
+      `hohenadl(l, d)` was removed**. A field sheet, a log per row, is `smalian(l, d)` or `huber(l, d)`
+      with the vector of lengths and the matrix of diameters (`Matrix(sheet[:, columns])`), and the
+      result is the vector of the volumes of the logs, ready to be a column of the sheet.
     - **The numerical examples of the docstrings, the tutorial and the tests are the tables of Machado &
       Figueiredo Filho (2003), *Dendrometria*, Chapter 5** (Tables 5.1 to 5.4: Smalian, Huber, Newton
-      and Hohenadl), a tree of 22.3 cm of diameter at breast height and 15.9 m of total height, which the
-      tests compare with the volumes calculated from the areas of the book.
-      The tree of Table 2 of Floriano (2025) is used for `treevolume`, whose totals (stump, sections and tip,
-      by Smalian, Huber and Newton: 0.11127, 0.10717 and 0.10854 m³) the tests reproduce.
+      and Hohenadl), a tree of 22.3 cm of diameter at breast height and 15.9 m of total height, and the
+      tree of Table 2 of Floriano (2025), whose totals (stump, sections and tip, by Smalian, Huber and
+      Newton: 0.11127, 0.10717 and 0.10854 m³) the tests reproduce.
     - **Nothing is interpolated.** `diameterinterpolation`, `heightinterpolation` and the diameter
-      at breast height read from the profile were removed. `D` and `H` are always the annotated
-      values. When the last measurement is below `H`, the tip is the cone above it; with Smalian's
-      method in `treevolume`, a last diameter of zero is the apex and is dropped.
+      at breast height read from the profile were removed. `D` and `H` are always the annotated values.
     - **The residual volume (`vr`, `vrs`) and the minimum diameter (`dlimit`, `dmin`) are gone.**
       The books split the bole into stump, sections and tip, and the profile is measured up to the
-      commercial height, so a separate residual part and a limit calculated from a diameter were
-      not part of the method. The keywords `ht`/`dbh`/`hdbh` → `H`/`D`.
-    - **`cubage` and `treevolume` with the heights are the absolute method**: heights `h` annotated,
-      and many trees stacked in the same vectors with the `id` keyword (before, `id` was the first
-      positional argument).
-    - **The relative method of the books (equal sections of a log) is `cubage(method, l, d)`**, with
-      the length `l` of the log instead of the heights: no heights, no total height, no form factor, only
-      the length and the diameters in order. The method is the formula that matches where the diameters
-      were measured: `Smalian` at the ends of the sections, `Huber` at their middles and `Newton` at the
-      ends and the middles. Hohenadl is the methodology of measuring (equal sections, the same relative
-      positions in every log), not another formula: with the diameters at the middles it is Huber's
-      formula, so **the function `hohenadl(l, d)` was removed** (use `cubage(Huber, l, d)`). For many
-      logs, a row of the sheet each, `l` is the vector of lengths and `d` the columns of the table (or a
-      matrix, a row per log); the result has a row per log, in order, with the column `vm`. There is no
-      identifier argument: the logs can be of the same tree or of different ones, so the identifier
-      columns stay in the table, beside the result. The units come from the headers with `parseunits`.
-      The relative method has no bark option.
+      commercial height. The keywords `ht`/`dbh`/`hdbh` → the arguments `H`/`D`.
     - The bark argument is now `E`, the bark thickness as defined by the manual (one side of the
       stem; `d_s = d - 2E`), where `e` used to be subtracted from the diameter as it was:
       **results with bark change** (bark factor, volumes without bark).
@@ -118,16 +108,16 @@
   - **No underscores in public names**: the keyword `plot_area` of `diametrictable` is now
     `plotarea`. The per-hectare columns of `diametrictable` have no suffix either (see above).
   - **One calculation, one place** (internal, results unchanged): the automatic
-    class width is a single helper for `frequencytable` and `diametrictable`; `treevolume` and
-    `cubage` share the stump/commercial/tip partition and the bark factor; `smalian(h, d)` reuses
-    the sections of `cubage`; `countspecies` uses `StatsBase.countmap`.
+    class width is a single helper for `frequencytable` and `diametrictable`; the volume
+    with bark of `cubage` is calculated once and reused without bark (`d - 2E`); the relative
+    `smalian(l, d)` and `huber(l, d)` reuse the formula of one section; `countspecies` uses `StatsBase.countmap`.
   - **Inventory designs** (re-exported from ForestInventory.jl): the keywords without `_`
     (`plotarea`, `totalarea`, `strataarea`, `pointarea`), the table columns in the symbols of
     Péllico Netto & Brena (1997) (`xm`, `cv`, `sxm`, `Ea`, `Er`, `X`, `nreq`, ...), the formulas of the
     book in every design (`partialreplacementsampling` is now Ware & Cunia's), and the examples and tests
     are the worked examples of the book; see the CHANGELOG of ForestInventory.jl.
   - The tutorial section "Logs from a Spreadsheet" used the removed `hohenadl` and the `id`
-    argument of `smalian`; it now uses `cubage(method, l, d)`.
+    argument of `smalian`; it now uses `smalian(l, d)` and `huber(l, d)` with the lengths and the matrix of diameters.
   - **Arguments are never uppercase**: the diameters `D` of the single averages
     (`arithmeticmeandiameter`, `quadraticmeandiameter`, `weisediameter`, `centralbasalareadiameter`,
     `dominantdiameter`, `hohenaldiameters`) and of `diametrictable` are now `d` (positional, so the calls do
@@ -152,7 +142,7 @@
   averages above.
 - All the heights of the stand: `arithmeticmeanheight`, `dominantheight`, `loreymeanheight` and the
   columns `Hl, Hm, HD, HL, Hu, CH`. The heights that remain are those of the cubage (`cubage`,
-  `treevolume`, `artificialformfactor`), which are inputs of the volume of each tree.
+  `artificialformfactor`), which are inputs of the volume of each tree.
 - `phytosociology`: use `standmetrics(species, plots, d, area)`.
 
 - Unused dependencies `QuadGK` and `Roots`.
