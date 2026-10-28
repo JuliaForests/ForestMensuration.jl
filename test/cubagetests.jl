@@ -77,6 +77,9 @@ booksmalian(h, g) = sum((g[j-1] + g[j]) / 2 * (h[j] - h[j-1]) for j in 2:length(
     @test conevolume(1.0u"m", 0.0u"cm") == 0.0u"m^3"
     @test_throws DomainError cylindervolume(-1.0u"m", D51[1])
     @test_throws DomainError conevolume(1.0u"m", -1.0u"cm")
+    # the height decides the system of the volume
+    @test unit(cylindervolume(1.0u"ft", 30.0u"cm")) == u"ft^3"
+    @test unit(conevolume(1.0u"m", 12.0u"inch")) == u"m^3"
   end
 
   @testset "A section: Smalian, Huber and Newton" begin

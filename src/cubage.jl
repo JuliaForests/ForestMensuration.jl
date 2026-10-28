@@ -10,7 +10,7 @@ Calculates the volume of a cylinder (``v_{cil}``). With the stump height ``h_t``
 - `d::Length`: The diameter of the cylinder. Must be non-negative.
 
 # Returns
-- `Quantity`: The volume of the cylinder in cubic feet `ft^3` when the diameter is given
+- `Quantity`: The volume of the cylinder in cubic feet `ft^3` when the height is given
   in imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
@@ -30,7 +30,7 @@ julia> cylindervolume(0.1u"m", 27.7u"cm")
 function cylindervolume(h::Length, d::Length)
   h < zero(h) && throw(DomainError(h, "The height must be a non-negative value."))
   v = sectionalarea(d) * h
-  inreferencevolume(v, d)
+  inreferencevolume(v, h)
 end
 
 """
@@ -43,7 +43,7 @@ Calculates the volume of a cone, used to estimate the volume of the tip of the t
 - `d::Length`: The diameter at the base of the cone. Must be non-negative; a bole whose last measured diameter is already zero yields a tip volume of zero.
 
 # Returns
-- `Quantity`: The volume of the cone in cubic feet `ft^3` when the diameter is given in
+- `Quantity`: The volume of the cone in cubic feet `ft^3` when the height is given in
   imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
@@ -78,7 +78,7 @@ Calculates the volume of a single log (``v_a``) using Smalian's method.
 - `d2::Length`: Diameter at the small end of the log (top).
 
 # Returns
-- `Quantity`: The volume of the log in cubic feet `ft^3` when the diameters are given in
+- `Quantity`: The volume of the log in cubic feet `ft^3` when the length is given in
   imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
@@ -126,7 +126,7 @@ Calculates the volume of the measured bole (``v_m``) using Smalian's method, fro
 - `d::AbstractVector{<:Length}`: Diameters measured at the heights `h`.
 
 # Returns
-- `Quantity`: The volume of the measured bole, the sum of the volumes of its `length(h) - 1` sections, in cubic feet `ft^3` when the diameters are given in imperial units, and in cubic meters `m^3` otherwise.
+- `Quantity`: The volume of the measured bole, the sum of the volumes of its `length(h) - 1` sections, in cubic feet `ft^3` when the heights are given in imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
 Each section is cubed by Smalian's formula, with its length the difference between consecutive heights:
@@ -175,7 +175,7 @@ For many logs, as annotated in a field sheet, a log per row:
 - `d::AbstractMatrix{<:Length}`: The diameters, a row per log (in the order of `l`) and a column per relative position. A `DataFrame` of diameters becomes this matrix with `Matrix(df)`.
 
 # Returns
-- `Quantity`: The volume of the log; with many logs, a `Vector` with the volume of each one, in the order of the rows of `d`. In cubic feet `ft^3` when the diameters are given in imperial units, and in cubic meters `m^3` otherwise.
+- `Quantity`: The volume of the log; with many logs, a `Vector` with the volume of each one, in the order of the rows of `d`. In cubic feet `ft^3` when the lengths are given in imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
 With ``n`` diameters there are ``n - 1`` sections of length ``l / (n - 1)``, each one cubed by Smalian's formula:
@@ -236,7 +236,7 @@ Calculates the volume of a single log (``v_a``) using Huber's method.
 - `d12::Length`: Diameter at the exact midpoint of the log (``d_{1/2}``).
 
 # Returns
-- `Quantity`: The volume of the log in cubic feet `ft^3` when the diameter is given in
+- `Quantity`: The volume of the log in cubic feet `ft^3` when the length is given in
   imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
@@ -283,7 +283,7 @@ For many logs, as annotated in a field sheet, a log per row:
 - `d::AbstractMatrix{<:Length}`: The diameters, a row per log (in the order of `l`) and a column per relative position. A `DataFrame` of diameters becomes this matrix with `Matrix(df)`.
 
 # Returns
-- `Quantity`: The volume of the log; with many logs, a `Vector` with the volume of each one, in the order of the rows of `d`. In cubic feet `ft^3` when the diameters are given in imperial units, and in cubic meters `m^3` otherwise.
+- `Quantity`: The volume of the log; with many logs, a `Vector` with the volume of each one, in the order of the rows of `d`. In cubic feet `ft^3` when the lengths are given in imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
 With ``n`` diameters there are ``n`` sections of length ``l / n``, each one cubed by Huber's formula:
@@ -345,7 +345,7 @@ Calculates the volume of a single log (``v_a``) using Newton's method.
 - `d2::Length`: Diameter at the small end of the log (top).
 
 # Returns
-- `Quantity`: The volume of the log in cubic feet `ft^3` when the diameters are given in
+- `Quantity`: The volume of the log in cubic feet `ft^3` when the length is given in
   imperial units, and in cubic meters `m^3` otherwise.
 
 # Mathematical basis
@@ -507,7 +507,7 @@ For logs measured at relative positions (equal sections), only the volume of the
 `H` and `D` may also be vectors with a value per row, as in a table where they are repeated in every row of the tree: they must be the same in every row. For many trees in the same vectors, see the method with `id`.
 
 # Returns
-- `DataFrame`: A row with the volumes in `ft^3` when the diameters are imperial and in `m^3` otherwise. First the columns with bark:
+- `DataFrame`: A row with the volumes in `ft^3` when the heights are imperial and in `m^3` otherwise. First the columns with bark:
   - `v`: total volume, ``v = v_t + v_m + v_p``.
   - `vt`: volume of the stump.
   - `vm`: commercial volume, the measured sections.

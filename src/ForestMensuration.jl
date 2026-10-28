@@ -32,8 +32,8 @@ The package facilitates the analysis of dendrometric and forest data, performs c
 Every function is built on `Unitful` quantities, so measurements carry their unit and are
 converted automatically. Diameters may be given in `cm`, `mm`, `inch`, ... and heights in
 `m`, `ft`, ..., in any combination; results are normalised to a single coherent unit:
-areas come back in `m^2` and volumes in `m^3`, or in `ft^2`/`ft^3` when the diameters are
-imperial.
+areas come back in `m^2`, or in `ft^2` when the diameters are imperial, and volumes in
+`m^3`, or in `ft^3` when the lengths (heights) are imperial.
 
 Lengths, areas and volumes must always carry units: a plain number says nothing about
 whether it was measured in `cm`, `m` or `inch`, so assuming a unit could fail silently.
