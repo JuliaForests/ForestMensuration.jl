@@ -16,8 +16,7 @@ ForestMensuration.jl is a Julia package that provides a comprehensive set of fun
   [`partialreplacementsampling`](@ref), [`doublesampling`](@ref)), plus horizontal line
   ([`strandsampling`](@ref)), Prodan's k-tree ([`prodansampling`](@ref)) and 3P
   ([`threepsampling`](@ref)) sampling — every one generic to
-  any number of strata/clusters/plots and returning a [`SamplingReport`](@ref) or plain
-  `DataFrame`. Re-exported from
+  any number of strata/clusters/plots and returning a [`SamplingReport`](@ref). Re-exported from
   [ForestInventory.jl](https://github.com/JuliaForests/ForestInventory.jl).
 - **Describe native forest community structure**: [`communitymatrix`](@ref), [`diversity`](@ref),
   [`floristicdistance`](@ref)/[`floristicsimilarity`](@ref), and

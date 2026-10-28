@@ -279,9 +279,8 @@ takes `plotarea`/`totalarea` as `Unitful` areas, but never assumes
 a unit for the sampled quantity itself (usually named `value`): it might be volume, basal
 area, a biomass, a tree count, or anything else, so a `Unitful` quantity is preserved as given and a
 plain number stays unitless all the way through, unlike every other function in this
-package (a count of trees per plot, with no unit, gives a mean per hectare in `ha^-1`). Designs that produce a single table return a plain `DataFrame`; designs that
-produce several related tables (one per stratum/cluster, or one per inventory occasion)
-return a [`SamplingReport`](@ref), whose tables are reachable through accessor functions
+package (a count of trees per plot, with no unit, gives a mean per hectare in `ha^-1`). Every design returns a [`SamplingReport`](@ref): the result table and, when the design
+produces them, the related tables (one per stratum/cluster, or one per inventory occasion). The tables are reachable through accessor functions
 (`resulttable(report)`, `clustertable(report)`, ...) or directly as properties
 (`report.resulttable`). The columns use the symbols of Péllico Netto & Brena (1997) in ASCII (`xm`, `cv`,
 `sxm`, `Ea`, `Er`, `X`, `nreq`, ...), and every design reproduces the worked example of its chapter of

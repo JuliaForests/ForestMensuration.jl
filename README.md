@@ -231,16 +231,17 @@ julia> v = [18.5, 22.8, 15.8, 9.8, 23.5, 20.7, 28.3, 6.9, 28.7, 26.4, 7.6, 10.3,
         21.9, 23.3, 9.9, 30.7, 29.2, 28.0, 13.7, 27.6, 37.9, 27.3, 28.0, 30.7]u"m^3";
 
 julia> report = simplecasualsampling(v, 0.1u"ha", 45u"ha"; e=10, α=0.95)
+Result Table
 1×17 DataFrame
  Row │ xm           cv       s2xm          sxm           Ea           Er       xha                X            Xl          Xu           population  f        n      nreq   nadd   N      A
      │ Quantity…    Float64  Quantity…     Quantity…     Quantity…    Float64  Quantity…          Quantity…    Quantity…   Quantity…    String      Float64  Int64  Int64  Int64  Int64  Quantity…
 ─────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
    1 │ 21.7971 m^3    39.58  0.897789 m^6  0.947518 m^3  1.89025 m^3     8.67  217.971 m^3 ha^-1  9808.71 m^3  8958.1 m^3  10659.3 m^3  finite        0.156     70     56      0    450      45 ha
 
-julia> report.xm[1]
+julia> report.resulttable.xm[1]
 21.79714285714286 m^3
 
-julia> stripunits(report)[:, ["xm (m^3)", "X (m^3)"]]
+julia> stripunits(report.resulttable)[:, ["xm (m^3)", "X (m^3)"]]
 1×2 DataFrame
  Row │ xm (m^3)  X (m^3)
      │ Float64   Float64
@@ -248,9 +249,9 @@ julia> stripunits(report)[:, ["xm (m^3)", "X (m^3)"]]
    1 │  21.7971  9808.71
 ```
 
-Multi-table designs (stratified, cluster, two-stage, and the four successive-occasions
-designs) return a `SamplingReport` instead of a bare `DataFrame`, so the per-group/
-per-occasion tables travel together — each one reachable as a property. The example is that of
+Every design returns a `SamplingReport`; the multi-table designs (stratified, cluster,
+two-stage, and the four successive-occasions designs) carry the per-group/per-occasion tables
+too, so they travel together — each one reachable as a property. The example is that of
 chapter 6 of the book: the same population in 3 strata of 144, 164 and 142 plots, sampled with 22 plots:
 
 ```julia-repl
