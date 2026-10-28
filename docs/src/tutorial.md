@@ -17,7 +17,6 @@ The volume of a single section (a log) by the three formulas, with the first sec
 
 ```@example ex_cub_01
 using ForestMensuration
-using Unitful
 
 smalian(1.2u"m", 27.7u"cm", 22.3u"cm"), huber(1.2u"m", 24.8u"cm"), newton(1.2u"m", 27.7u"cm", 24.8u"cm", 22.3u"cm")
 ```
@@ -71,7 +70,6 @@ Field data usually has a row per measurement, with the tree identifier, and the 
 ```@example ex_cub_02
 using ForestMensuration
 using DataFrames
-using Unitful
 
 # The tree of Table 5.1 (A) and the tree of Table 2 of Floriano (2025) (B), a row per measurement
 trees = vcat(
